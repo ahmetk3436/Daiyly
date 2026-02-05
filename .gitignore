@@ -1,0 +1,36 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Generated projects (separate repos)
+EcoMonitor-AI/
+fully-autonomous-mobile-system/
+
+# Go
+backend/tmp/
+backend/server
+orchestrator/orchestrator
+orchestrator/orchestrator_bin
+*_bin
+
+# Node / Expo
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/ios/
+mobile/android/
+
+# IDE
+.idea/
+.vscode/
+.claude/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
