@@ -34,3 +34,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Auto-generated agent files
+**/CLAUDE.md
+human_req.txt
