@@ -3,6 +3,7 @@
     "name": "Daiyly",
     "slug": "daiyly",
     "version": "1.0.0",
+    "owner": "ahmetcoskunkizilkaya",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "daiyly",
@@ -15,7 +16,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.daiyly.app",
+      "bundleIdentifier": "com.ahmetcoskunkizilkaya.daiyly",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "NSFaceIDUsageDescription": "Daiyly uses Face ID to protect your journal entries"
       }
@@ -36,6 +41,14 @@
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication"
-    ]
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "FILL_IN"
+      }
+    }
   }
 }
