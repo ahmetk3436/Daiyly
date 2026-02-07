@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useCallback,
 } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../lib/api';
 import {
   setTokens,
@@ -15,15 +16,24 @@ import {
 import { hapticSuccess, hapticError } from '../lib/haptics';
 import type { User, AuthResponse } from '../types/auth';
 
+const GUEST_USAGE_KEY = 'daiyly_guest_usage';
+const GUEST_MODE_KEY = 'daiyly_guest_mode';
+const MAX_GUEST_USES = 3;
+
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
+  isGuest: boolean;
+  guestUsageCount: number;
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   loginWithApple: (identityToken: string, authCode: string, fullName?: string, email?: string) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: (password?: string) => Promise<void>;
+  continueAsGuest: () => Promise<void>;
+  canUseFeature: () => boolean;
+  incrementGuestUsage: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,10 +41,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
+  const [guestUsageCount, setGuestUsageCount] = useState(0);
 
   const isAuthenticated = user !== null;
 
-  // Restore session on mount
   useEffect(() => {
     const restore = async () => {
       try {
@@ -44,6 +55,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (data.status === 'ok') {
             const payload = JSON.parse(atob(token.split('.')[1]));
             setUser({ id: payload.sub, email: payload.email });
+          }
+        } else {
+          const guestMode = await AsyncStorage.getItem(GUEST_MODE_KEY);
+          if (guestMode === 'true') {
+            setIsGuest(true);
+            const usage = await AsyncStorage.getItem(GUEST_USAGE_KEY);
+            setGuestUsageCount(usage ? parseInt(usage, 10) : 0);
           }
         }
       } catch {
@@ -57,12 +75,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const { data } = await api.post<AuthResponse>('/auth/login', {
-        email,
-        password,
-      });
+      const { data } = await api.post<AuthResponse>('/auth/login', { email, password });
       await setTokens(data.access_token, data.refresh_token);
       setUser(data.user);
+      setIsGuest(false);
+      await AsyncStorage.removeItem(GUEST_MODE_KEY);
       hapticSuccess();
     } catch (err) {
       hapticError();
@@ -72,12 +89,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = useCallback(async (email: string, password: string) => {
     try {
-      const { data } = await api.post<AuthResponse>('/auth/register', {
-        email,
-        password,
-      });
+      const { data } = await api.post<AuthResponse>('/auth/register', { email, password });
       await setTokens(data.access_token, data.refresh_token);
       setUser(data.user);
+      setIsGuest(false);
+      await AsyncStorage.removeItem(GUEST_MODE_KEY);
       hapticSuccess();
     } catch (err) {
       hapticError();
@@ -85,7 +101,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Sign in with Apple (Guideline 4.8)
   const loginWithApple = useCallback(
     async (identityToken: string, authCode: string, fullName?: string, email?: string) => {
       try {
@@ -97,6 +112,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         await setTokens(data.access_token, data.refresh_token);
         setUser(data.user);
+        setIsGuest(false);
+        await AsyncStorage.removeItem(GUEST_MODE_KEY);
         hapticSuccess();
       } catch (err) {
         hapticError();
@@ -113,37 +130,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await api.post('/auth/logout', { refresh_token: refreshToken });
       }
     } catch {
-      // Ignore logout API errors
     } finally {
       await clearTokens();
       setUser(null);
+      setIsGuest(false);
+      await AsyncStorage.removeItem(GUEST_MODE_KEY);
     }
   }, []);
 
-  // Account deletion (Guideline 5.1.1)
-  const deleteAccount = useCallback(
-    async (password?: string) => {
-      await api.delete('/auth/account', {
-        data: { password: password || '' },
-      });
-      await clearTokens();
-      setUser(null);
-      hapticSuccess();
-    },
-    []
-  );
+  const deleteAccount = useCallback(async (password?: string) => {
+    await api.delete('/auth/account', { data: { password: password || '' } });
+    await clearTokens();
+    setUser(null);
+    hapticSuccess();
+  }, []);
+
+  const continueAsGuest = useCallback(async () => {
+    setIsGuest(true);
+    await AsyncStorage.setItem(GUEST_MODE_KEY, 'true');
+    hapticSuccess();
+  }, []);
+
+  const canUseFeature = useCallback(() => {
+    if (isAuthenticated) return true;
+    return guestUsageCount < MAX_GUEST_USES;
+  }, [isAuthenticated, guestUsageCount]);
+
+  const incrementGuestUsage = useCallback(async () => {
+    const newCount = guestUsageCount + 1;
+    setGuestUsageCount(newCount);
+    await AsyncStorage.setItem(GUEST_USAGE_KEY, newCount.toString());
+  }, [guestUsageCount]);
 
   return (
     <AuthContext.Provider
       value={{
-        isAuthenticated,
-        isLoading,
-        user,
-        login,
-        register,
-        loginWithApple,
-        logout,
-        deleteAccount,
+        isAuthenticated, isLoading, isGuest, guestUsageCount, user,
+        login, register, loginWithApple, logout, deleteAccount,
+        continueAsGuest, canUseFeature, incrementGuestUsage,
       }}
     >
       {children}

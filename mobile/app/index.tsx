@@ -4,17 +4,17 @@ import { Redirect } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Index() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isGuest } = useAuth();
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#2563eb" />
+      <View className="flex-1 items-center justify-center bg-gray-950">
+        <ActivityIndicator size="large" color="#f59e0b" />
       </View>
     );
   }
 
-  if (isAuthenticated) {
+  if (isAuthenticated || isGuest) {
     return <Redirect href="/(protected)/home" />;
   }
 
