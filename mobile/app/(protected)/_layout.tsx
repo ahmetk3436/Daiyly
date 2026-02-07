@@ -1,14 +1,14 @@
 import React from 'react';
-import { View, Pressable, ActivityIndicator } from 'react-native';
+import { View, Pressable, Text, ActivityIndicator } from 'react-native';
 import { Slot, Redirect, useRouter, usePathname } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { hapticSelection } from '../../lib/haptics';
 
 const TABS = [
-  { path: '/(protected)/home', icon: 'book', iconOutline: 'book-outline', label: 'Journal' },
-  { path: '/(protected)/settings', icon: 'settings', iconOutline: 'settings-outline', label: 'Settings' },
+  { route: '/(protected)/home', label: 'Journal', icon: '\u{1F4DD}' },
+  { route: '/(protected)/history', label: 'History', icon: '\u{1F4D6}' },
+  { route: '/(protected)/settings', label: 'Settings', icon: '\u2699\uFE0F' },
 ] as const;
 
 export default function ProtectedLayout() {
@@ -19,8 +19,9 @@ export default function ProtectedLayout() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-950">
-        <ActivityIndicator size="large" color="#f59e0b" />
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator size="large" color="#2563eb" />
+        <Text className="text-base text-gray-500 mt-4">Loading...</Text>
       </View>
     );
   }
@@ -30,28 +31,48 @@ export default function ProtectedLayout() {
   }
 
   return (
-    <View className="flex-1 bg-gray-950">
+    <View className="flex-1 bg-white">
       <Slot />
       <View
-        className="flex-row border-t border-gray-800 bg-gray-950"
-        style={{ paddingBottom: insets.bottom }}
+        className="flex-row border-t border-gray-100 bg-white"
+        style={{
+          paddingBottom: insets.bottom || 16,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          elevation: 8,
+        }}
       >
         {TABS.map((tab) => {
-          const isActive = pathname === tab.path || pathname.startsWith(tab.path);
+          const isActive =
+            pathname === tab.route ||
+            pathname.includes(tab.route.split('/').pop() || '');
           return (
             <Pressable
-              key={tab.path}
-              className="flex-1 items-center py-3"
+              key={tab.route}
+              className="flex-1 items-center pt-3 pb-2"
               onPress={() => {
                 hapticSelection();
-                router.push(tab.path as any);
+                router.push(tab.route as never);
               }}
             >
-              <Ionicons
-                name={isActive ? tab.icon : tab.iconOutline}
-                size={24}
-                color={isActive ? '#f59e0b' : '#6b7280'}
-              />
+              <Text className="text-2xl">{tab.icon}</Text>
+              <Text
+                className="text-xs mt-1"
+                style={{
+                  color: isActive ? '#2563eb' : '#9ca3af',
+                  fontWeight: isActive ? '600' : '400',
+                }}
+              >
+                {tab.label}
+              </Text>
+              {isActive && (
+                <View
+                  className="rounded-full bg-blue-600 mt-1"
+                  style={{ width: 4, height: 4 }}
+                />
+              )}
             </Pressable>
           );
         })}

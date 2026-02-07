@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ahmetcoskunkizilkaya/fully-autonomous-mobile-system/backend/internal/config"
 	"github.com/ahmetcoskunkizilkaya/fully-autonomous-mobile-system/backend/internal/database"
@@ -17,7 +18,6 @@ import (
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
-	"time"
 )
 
 func main() {
@@ -42,12 +42,14 @@ func main() {
 	authService := services.NewAuthService(database.DB, cfg)
 	subscriptionService := services.NewSubscriptionService(database.DB)
 	moderationService := services.NewModerationService(database.DB)
+	journalService := services.NewJournalService(database.DB)
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authService)
 	healthHandler := handlers.NewHealthHandler()
 	webhookHandler := handlers.NewWebhookHandler(subscriptionService, cfg)
 	moderationHandler := handlers.NewModerationHandler(moderationService)
+	journalHandler := handlers.NewJournalHandler(journalService)
 
 	// Fiber app
 	app := fiber.New(fiber.Config{
@@ -72,7 +74,7 @@ func main() {
 	app.Use("/api/auth", authLimiter)
 
 	// Routes
-	routes.Setup(app, cfg, authHandler, healthHandler, webhookHandler, moderationHandler)
+	routes.Setup(app, cfg, authHandler, healthHandler, webhookHandler, moderationHandler, journalHandler)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)

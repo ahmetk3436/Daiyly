@@ -14,6 +14,7 @@ func Setup(
 	healthHandler *handlers.HealthHandler,
 	webhookHandler *handlers.WebhookHandler,
 	moderationHandler *handlers.ModerationHandler,
+	journalHandler *handlers.JournalHandler,
 ) {
 	api := app.Group("/api")
 
@@ -31,6 +32,18 @@ func Setup(
 	protected := api.Group("", middleware.JWTProtected(cfg))
 	protected.Post("/auth/logout", authHandler.Logout)
 	protected.Delete("/auth/account", authHandler.DeleteAccount) // Account deletion (Guideline 5.1.1)
+
+	// Journal CRUD (protected)
+	journals := protected.Group("/journals")
+	journals.Post("/", journalHandler.Create)
+	journals.Get("/", journalHandler.List)
+	journals.Get("/insights", journalHandler.GetWeeklyInsights)
+	journals.Get("/:id", journalHandler.Get)
+	journals.Put("/:id", journalHandler.Update)
+	journals.Delete("/:id", journalHandler.Delete)
+
+	// Streak (protected)
+	protected.Get("/streak", journalHandler.GetStreak)
 
 	// Moderation - User endpoints (protected)
 	protected.Post("/reports", moderationHandler.CreateReport)     // Report content (Guideline 1.2)

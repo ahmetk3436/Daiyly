@@ -1,22 +1,43 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { Redirect } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { hasSeenOnboarding } from '../lib/onboarding';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Index() {
+  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
   const { isAuthenticated, isLoading, isGuest } = useAuth();
+  const router = useRouter();
 
-  if (isLoading) {
+  useEffect(() => {
+    const checkStatus = async () => {
+      const seenOnboarding = await hasSeenOnboarding();
+
+      if (!seenOnboarding) {
+        router.replace('/onboarding');
+      } else {
+        // Onboarding seen, check auth state
+        if (!isLoading) {
+          if (isAuthenticated || isGuest) {
+            router.replace('/(protected)/home');
+          } else {
+            router.replace('/(auth)/login');
+          }
+        }
+      }
+      setIsCheckingOnboarding(false);
+    };
+
+    checkStatus();
+  }, [isLoading, isAuthenticated, isGuest]);
+
+  if (isCheckingOnboarding || isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-950">
-        <ActivityIndicator size="large" color="#f59e0b" />
+      <View className="flex-1 bg-white justify-center items-center">
+        <ActivityIndicator size="large" color="#8B5CF6" />
       </View>
     );
   }
 
-  if (isAuthenticated || isGuest) {
-    return <Redirect href="/(protected)/home" />;
-  }
-
-  return <Redirect href="/(auth)/login" />;
+  return null;
 }
