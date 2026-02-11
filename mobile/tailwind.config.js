@@ -21,6 +21,17 @@ module.exports = {
           800: '#1e40af',
           900: '#1e3a8a',
         },
+        // 2025-2026 Trend: Gradient colors
+        gradient: {
+          from: {
+            purple: '#8B5CF6',
+            pink: '#EC4899',
+          },
+          to: {
+            purple: '#7c3aed',
+            pink: '#db2777',
+          },
+        },
       },
     },
   },
