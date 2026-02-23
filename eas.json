@@ -1,0 +1,40 @@
+{
+  "cli": {
+    "version": ">= 15.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "autoIncrement": true,
+      "distribution": "store",
+      "cache": {
+        "disabled": false
+      },
+      "env": {
+        "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "ahmetk3436@gmail.com",
+        "appleTeamId": "HSP7DV4L29",
+        "ascApiKeyId": "RHRSDZ855Y",
+        "ascApiKeyIssuerId": "f387dfb3-5fe1-4d00-8100-f5a9e110b492",
+        "ascApiKeyPath": "./AuthKey_RHRSDZ855Y.p8",
+        "ascAppId": "6759113876"
+      }
+    }
+  }
+}
