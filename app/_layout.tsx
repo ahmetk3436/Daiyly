@@ -1,9 +1,9 @@
 import '../global.css';
 import '../lib/i18n';
 import React, { useEffect } from 'react';
-import { View } from 'react-native';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from 'nativewind';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -13,12 +13,18 @@ import { refreshApiBaseUrl } from '../lib/api';
 
 function ThemedApp() {
   const { isDark } = useTheme();
+  const { setColorScheme } = useColorScheme();
+
+  // Sync ThemeContext preference to NativeWind's color scheme
+  useEffect(() => {
+    setColorScheme(isDark ? 'dark' : 'light');
+  }, [isDark]);
 
   return (
-    <View className={`flex-1 ${isDark ? 'dark' : ''}`}>
+    <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Slot />
-    </View>
+    </>
   );
 }
 
