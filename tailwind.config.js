@@ -6,6 +6,7 @@ module.exports = {
     './contexts/**/*.{js,jsx,ts,tsx}',
   ],
   presets: [require('nativewind/preset')],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -20,6 +21,7 @@ module.exports = {
           700: '#1d4ed8',
           800: '#1e40af',
           900: '#1e3a8a',
+          DEFAULT: '#2563EB',
         },
         accent: {
           warm: '#F59E0B',
@@ -38,11 +40,18 @@ module.exports = {
           excited: '#EC4899',
           neutral: '#64748B',
         },
+        background: 'var(--color-background)',
         surface: {
-          DEFAULT: '#FFFFFF',
-          secondary: '#F8FAFC',
-          muted: '#F1F5F9',
+          DEFAULT: 'var(--color-surface)',
+          elevated: 'var(--color-surface-elevated)',
         },
+        'text-primary': 'var(--color-text-primary)',
+        'text-secondary': 'var(--color-text-secondary)',
+        'text-muted': 'var(--color-text-muted)',
+        border: 'var(--color-border)',
+        success: '#10B981',
+        warning: '#F59E0B',
+        error: '#EF4444',
       },
     },
   },
