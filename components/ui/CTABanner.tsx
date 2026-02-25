@@ -140,14 +140,12 @@ export function MinimalCTABanner({
 }) {
   return (
     <Pressable
-      className="mx-4 bg-blue-50 rounded-2xl p-4 flex-row items-center justify-between"
+      className="mx-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-4 flex-row items-center justify-between border border-blue-200 dark:border-blue-800"
       onPress={() => {
         hapticLight();
         onPress?.();
       }}
       style={{
-        borderWidth: 1,
-        borderColor: '#bfdbfe',
         shadowColor: '#3b82f6',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
@@ -156,16 +154,16 @@ export function MinimalCTABanner({
       }}
     >
       <View className="flex-1">
-        <Text className="text-blue-900 font-semibold text-base mb-0.5">
+        <Text className="text-blue-900 dark:text-blue-200 font-semibold text-base mb-0.5">
           {title}
         </Text>
         {subtitle && (
-          <Text className="text-blue-600 text-sm">{subtitle}</Text>
+          <Text className="text-blue-600 dark:text-blue-400 text-sm">{subtitle}</Text>
         )}
       </View>
 
       <View className="flex-row items-center gap-1">
-        <Text className="text-blue-600 font-semibold text-sm">{actionText}</Text>
+        <Text className="text-blue-600 dark:text-blue-400 font-semibold text-sm">{actionText}</Text>
         <Ionicons name="chevron-forward" size={16} color="#2563eb" />
       </View>
     </Pressable>

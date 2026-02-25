@@ -299,19 +299,14 @@ export function MoodBentoGrid({ moods, onSelectMood }: {
       {moods.map((mood) => (
         <Pressable
           key={mood.id}
-          className="w-16 h-16 rounded-2xl items-center justify-center"
-          style={{
-            backgroundColor: '#f3f4f6',
-            borderWidth: 1,
-            borderColor: '#e5e7eb',
-          }}
+          className="w-16 h-16 rounded-2xl items-center justify-center bg-surface-muted border border-border-strong"
           onPress={() => {
             hapticLight();
             onSelectMood(mood.id);
           }}
         >
           <Text className="text-2xl mb-0.5">{mood.emoji}</Text>
-          <Text className="text-xs text-gray-600">{mood.label}</Text>
+          <Text className="text-xs text-text-secondary">{mood.label}</Text>
         </Pressable>
       ))}
     </View>

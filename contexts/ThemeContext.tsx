@@ -1,67 +1,78 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useColorScheme as useSystemColorScheme } from 'react-native';
+import { useColorScheme as useDeviceColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type ThemePreference = 'system' | 'light' | 'dark';
-export type ResolvedTheme = 'light' | 'dark';
+export type ThemeMode = 'system' | 'light' | 'dark';
 
-interface ThemeContextValue {
-  themePreference: ThemePreference;
-  colorScheme: ResolvedTheme;
-  setThemePreference: (pref: ThemePreference) => Promise<void>;
+interface ThemeContextType {
+  themeMode: ThemeMode;
   isDark: boolean;
+  setThemeMode: (mode: ThemeMode) => void;
+  colorScheme: 'light' | 'dark';
 }
 
-const ThemeContext = createContext<ThemeContextValue>({
-  themePreference: 'system',
-  colorScheme: 'light',
-  setThemePreference: async () => {},
+const ThemeContext = createContext<ThemeContextType>({
+  themeMode: 'system',
   isDark: false,
+  setThemeMode: () => {},
+  colorScheme: 'light',
 });
 
-const THEME_STORAGE_KEY = '@daiyly_theme';
+const STORAGE_KEY = '@daiyly_settings';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const systemScheme = useSystemColorScheme();
-  const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
-  const [isLoaded, setIsLoaded] = useState(false);
+  const deviceScheme = useDeviceColorScheme();
+  const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
+  const [loaded, setLoaded] = useState(false);
 
+  // Load persisted theme preference
   useEffect(() => {
     const load = async () => {
       try {
-        const stored = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-        if (stored) setThemePreferenceState(stored as ThemePreference);
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.themeMode) {
+            setThemeModeState(parsed.themeMode);
+          }
+        }
       } catch {}
-      setIsLoaded(true);
+      setLoaded(true);
     };
     load();
   }, []);
 
-  const setThemePreference = useCallback(async (pref: ThemePreference) => {
-    setThemePreferenceState(pref);
+  const setThemeMode = useCallback(async (mode: ThemeMode) => {
+    setThemeModeState(mode);
     try {
-      await AsyncStorage.setItem(THEME_STORAGE_KEY, pref);
+      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const s = stored ? JSON.parse(stored) : {};
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ ...s, themeMode: mode })
+      );
     } catch {}
   }, []);
 
-  const colorScheme: ResolvedTheme =
-    themePreference === 'system'
-      ? (systemScheme === 'dark' ? 'dark' : 'light')
-      : themePreference;
+  const colorScheme: 'light' | 'dark' =
+    themeMode === 'system'
+      ? deviceScheme === 'dark'
+        ? 'dark'
+        : 'light'
+      : themeMode;
 
   const isDark = colorScheme === 'dark';
 
-  if (!isLoaded) return null;
+  // Don't render until we've loaded the preference to prevent flash
+  if (!loaded) return null;
 
   return (
-    <ThemeContext.Provider value={{ themePreference, colorScheme, setThemePreference, isDark }}>
+    <ThemeContext.Provider value={{ themeMode, isDark, setThemeMode, colorScheme }}>
       {children}
     </ThemeContext.Provider>
   );
 }
 
 export function useTheme() {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
-  return ctx;
+  return useContext(ThemeContext);
 }

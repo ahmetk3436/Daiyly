@@ -161,15 +161,15 @@ export function MinimalShareCard({
 
   return (
     <Pressable onPress={handleShare}>
-      <View ref={viewRef} className="bg-gray-100 rounded-2xl p-8 items-center justify-center">
-        <Text className="text-gray-500 text-sm font-medium uppercase tracking-widest mb-2">
+      <View ref={viewRef} className="bg-surface-muted rounded-2xl p-8 items-center justify-center">
+        <Text className="text-text-secondary text-sm font-medium uppercase tracking-widest mb-2">
           {title}
         </Text>
-        <Text className="text-gray-900 text-5xl font-bold mb-2">{value}</Text>
+        <Text className="text-text-primary text-5xl font-bold mb-2">{value}</Text>
         {subtitle && (
-          <Text className="text-gray-600 text-base">{subtitle}</Text>
+          <Text className="text-text-secondary text-base">{subtitle}</Text>
         )}
-        <Text className="text-gray-400 text-xs mt-8">Made with Daiyly</Text>
+        <Text className="text-text-muted text-xs mt-8">Made with Daiyly</Text>
       </View>
     </Pressable>
   );

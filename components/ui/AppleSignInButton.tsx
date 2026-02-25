@@ -70,9 +70,9 @@ export default function AppleSignInButton({
     return (
       <View className="mt-4">
         <View className="mb-4 flex-row items-center">
-          <View className="h-px flex-1 bg-gray-300" />
-          <Text className="mx-4 text-sm text-gray-500">or</Text>
-          <View className="h-px flex-1 bg-gray-300" />
+          <View className="h-px flex-1 bg-border-strong" />
+          <Text className="mx-4 text-sm text-text-secondary">or</Text>
+          <View className="h-px flex-1 bg-border-strong" />
         </View>
 
         <View pointerEvents={isLoading ? 'none' : 'auto'} style={{ opacity: isLoading ? 0.5 : 1 }}>
@@ -92,9 +92,9 @@ export default function AppleSignInButton({
   return (
     <View className="mt-4">
       <View className="mb-4 flex-row items-center">
-        <View className="h-px flex-1 bg-gray-300" />
-        <Text className="mx-4 text-sm text-gray-500">or</Text>
-        <View className="h-px flex-1 bg-gray-300" />
+        <View className="h-px flex-1 bg-border-strong" />
+        <Text className="mx-4 text-sm text-text-secondary">or</Text>
+        <View className="h-px flex-1 bg-border-strong" />
       </View>
 
       <Pressable

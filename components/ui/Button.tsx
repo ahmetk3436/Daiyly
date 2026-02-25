@@ -17,7 +17,7 @@ interface ButtonProps extends PressableProps {
 const variantStyles = {
   primary: 'bg-blue-600 active:opacity-80',
   secondary: 'bg-gray-600 active:bg-gray-700',
-  outline: 'border-2 border-blue-600 bg-transparent active:bg-blue-50',
+  outline: 'border-2 border-blue-600 bg-transparent active:bg-blue-50 dark:active:bg-blue-900/30',
   destructive: 'bg-red-600 active:bg-red-700',
 };
 

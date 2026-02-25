@@ -11,6 +11,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSubscription } from '../../contexts/SubscriptionContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import {
   getOfferings,
   purchasePackage,
@@ -39,33 +40,33 @@ try {
 const PREMIUM_FEATURES = [
   {
     icon: 'analytics-outline' as const,
-    title: 'AI Weekly Insights',
-    desc: 'Smart mood analysis & patterns',
+    title: 'AI-Powered Mood Analysis',
+    desc: 'Weekly insights that reveal your emotional patterns',
   },
   {
     icon: 'cloud-outline' as const,
-    title: 'Word Cloud Analysis',
-    desc: 'Visualize your most used words',
+    title: 'Word Cloud Visualization',
+    desc: 'See your most-used words visualized beautifully',
   },
   {
     icon: 'infinite-outline' as const,
     title: 'Unlimited History',
-    desc: 'Access all your past entries',
+    desc: 'Never lose a journal entry -- access everything forever',
   },
   {
     icon: 'search-outline' as const,
     title: 'Full-Text Search',
-    desc: 'Search across all entries',
+    desc: 'Search across all your entries instantly',
   },
   {
     icon: 'share-outline' as const,
     title: 'Shareable Mood Cards',
-    desc: 'Beautiful cards for social media',
+    desc: 'Beautiful cards to share your journey with others',
   },
   {
     icon: 'download-outline' as const,
     title: 'Data Export',
-    desc: 'Export as CSV or JSON',
+    desc: 'Export your journal data anytime as CSV or JSON',
   },
 ];
 
@@ -76,6 +77,7 @@ function FallbackPaywall({
   onPurchaseCompleted: () => Promise<void>;
   onDismiss: () => void;
 }) {
+  const { isDark } = useTheme();
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
@@ -134,14 +136,14 @@ function FallbackPaywall({
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+      <SafeAreaView className="flex-1 bg-background items-center justify-center">
         <ActivityIndicator size="large" color="#2563EB" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
@@ -151,23 +153,29 @@ function FallbackPaywall({
         <View className="px-5 pt-3">
           <Pressable
             onPress={onDismiss}
-            className="self-end w-8 h-8 rounded-full bg-gray-100 items-center justify-center"
+            className="self-end w-8 h-8 rounded-full bg-surface-muted items-center justify-center"
           >
-            <Ionicons name="close" size={20} color="#6B7280" />
+            <Ionicons name="close" size={20} color={isDark ? '#94A3B8' : '#6B7280'} />
           </Pressable>
         </View>
 
         {/* Header */}
         <View className="items-center px-6 pt-4 pb-6">
-          <View className="w-16 h-16 rounded-2xl bg-blue-100 items-center justify-center mb-4">
+          <View className="w-16 h-16 rounded-2xl bg-blue-100 dark:bg-blue-900/40 items-center justify-center mb-4">
             <Ionicons name="diamond" size={32} color="#2563EB" />
           </View>
-          <Text className="text-2xl font-bold text-gray-900 text-center">
-            Unlock Premium
+          <Text className="text-2xl font-bold text-text-primary text-center">
+            Unlock Your Full Potential
           </Text>
-          <Text className="text-base text-gray-500 text-center mt-2">
-            Get unlimited access to all features
+          <Text className="text-base text-text-secondary text-center mt-2">
+            Deeper insights, powerful search, and more
           </Text>
+          <View className="flex-row items-center mt-3 bg-green-50 dark:bg-green-900/20 rounded-full px-4 py-1.5 border border-green-100 dark:border-green-800">
+            <Ionicons name="people-outline" size={14} color="#16A34A" />
+            <Text className="text-xs font-semibold text-green-700 dark:text-green-400 ml-1.5">
+              Join 10,000+ journalers building better habits
+            </Text>
+          </View>
         </View>
 
         {/* Plan Selection */}
@@ -180,23 +188,23 @@ function FallbackPaywall({
             }}
             className={`rounded-2xl p-4 mb-3 border-2 ${
               selectedPlan === 'annual'
-                ? 'border-blue-500 bg-blue-50'
-                : 'border-gray-200 bg-white'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                : 'border-border-strong bg-surface-elevated'
             }`}
           >
             <View className="flex-row items-center justify-between">
               <View>
                 <View className="flex-row items-center">
-                  <Text className="text-base font-bold text-gray-900">
+                  <Text className="text-base font-bold text-text-primary">
                     Annual
                   </Text>
-                  <View className="bg-green-100 rounded-full px-2 py-0.5 ml-2 border border-green-200">
-                    <Text className="text-xs font-bold text-green-700">
+                  <View className="bg-green-100 dark:bg-green-900/40 rounded-full px-2 py-0.5 ml-2 border border-green-200 dark:border-green-700">
+                    <Text className="text-xs font-bold text-green-700 dark:text-green-400">
                       SAVE 50%
                     </Text>
                   </View>
                 </View>
-                <Text className="text-sm text-gray-500 mt-0.5">
+                <Text className="text-sm text-text-secondary mt-0.5">
                   $29.99/year ($2.50/month)
                 </Text>
               </View>
@@ -204,7 +212,7 @@ function FallbackPaywall({
                 className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
                   selectedPlan === 'annual'
                     ? 'border-blue-500 bg-blue-500'
-                    : 'border-gray-300'
+                    : 'border-border-strong'
                 }`}
               >
                 {selectedPlan === 'annual' && (
@@ -222,16 +230,16 @@ function FallbackPaywall({
             }}
             className={`rounded-2xl p-4 border-2 ${
               selectedPlan === 'monthly'
-                ? 'border-blue-500 bg-blue-50'
-                : 'border-gray-200 bg-white'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                : 'border-border-strong bg-surface-elevated'
             }`}
           >
             <View className="flex-row items-center justify-between">
               <View>
-                <Text className="text-base font-bold text-gray-900">
+                <Text className="text-base font-bold text-text-primary">
                   Monthly
                 </Text>
-                <Text className="text-sm text-gray-500 mt-0.5">
+                <Text className="text-sm text-text-secondary mt-0.5">
                   $4.99/month
                 </Text>
               </View>
@@ -239,7 +247,7 @@ function FallbackPaywall({
                 className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
                   selectedPlan === 'monthly'
                     ? 'border-blue-500 bg-blue-500'
-                    : 'border-gray-300'
+                    : 'border-border-strong'
                 }`}
               >
                 {selectedPlan === 'monthly' && (
@@ -251,9 +259,9 @@ function FallbackPaywall({
         </View>
 
         {/* Trial Badge */}
-        <View className="mx-5 mb-6 bg-amber-50 rounded-xl p-3 border border-amber-100 flex-row items-center">
+        <View className="mx-5 mb-6 bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 border border-amber-100 dark:border-amber-800 flex-row items-center">
           <Ionicons name="gift-outline" size={20} color="#D97706" />
-          <Text className="text-sm text-amber-700 ml-2 flex-1">
+          <Text className="text-sm text-amber-700 dark:text-amber-400 ml-2 flex-1">
             Start with a <Text className="font-bold">3-day free trial</Text>.
             Cancel anytime.
           </Text>
@@ -261,7 +269,7 @@ function FallbackPaywall({
 
         {/* Features */}
         <View className="px-5 mb-6">
-          <Text className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wider">
+          <Text className="text-sm font-semibold text-text-secondary mb-3 uppercase tracking-wider">
             What you get
           </Text>
           {PREMIUM_FEATURES.map((feature, index) => (
@@ -269,7 +277,7 @@ function FallbackPaywall({
               key={index}
               className="flex-row items-center py-3"
             >
-              <View className="w-9 h-9 rounded-lg bg-blue-50 items-center justify-center mr-3">
+              <View className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/30 items-center justify-center mr-3">
                 <Ionicons
                   name={feature.icon}
                   size={18}
@@ -277,10 +285,10 @@ function FallbackPaywall({
                 />
               </View>
               <View className="flex-1">
-                <Text className="text-sm font-semibold text-gray-900">
+                <Text className="text-sm font-semibold text-text-primary">
                   {feature.title}
                 </Text>
-                <Text className="text-xs text-gray-500">{feature.desc}</Text>
+                <Text className="text-xs text-text-secondary">{feature.desc}</Text>
               </View>
               <Ionicons
                 name="checkmark-circle"
@@ -292,8 +300,8 @@ function FallbackPaywall({
         </View>
 
         {error && (
-          <View className="mx-5 mb-4 bg-red-50 rounded-xl p-3 border border-red-100">
-            <Text className="text-sm text-red-600 text-center">{error}</Text>
+          <View className="mx-5 mb-4 bg-red-50 dark:bg-red-900/30 rounded-xl p-3 border border-red-100 dark:border-red-800">
+            <Text className="text-sm text-red-600 dark:text-red-400 text-center">{error}</Text>
           </View>
         )}
 
@@ -301,7 +309,7 @@ function FallbackPaywall({
         <View className="px-5 mb-4">
           <Pressable
             className={`rounded-2xl py-4 items-center ${
-              purchasing ? 'bg-gray-300' : 'bg-blue-600 active:bg-blue-700'
+              purchasing ? 'bg-surface-muted' : 'bg-blue-600 active:bg-blue-700'
             }`}
             onPress={() => {
               hapticLight();
@@ -325,11 +333,21 @@ function FallbackPaywall({
             ) : (
               <Text className="text-white text-base font-bold">
                 {selectedPlan === 'annual'
-                  ? 'Start Free Trial - $29.99/yr'
-                  : 'Subscribe - $4.99/mo'}
+                  ? 'Start Free Trial -- Then $29.99/yr'
+                  : 'Start Free Trial -- Then $4.99/mo'}
               </Text>
             )}
           </Pressable>
+        </View>
+
+        {/* Reassurance */}
+        <View className="items-center px-5 mb-2">
+          <View className="flex-row items-center">
+            <Ionicons name="shield-checkmark-outline" size={14} color={isDark ? '#94A3B8' : '#6B7280'} />
+            <Text className="text-xs text-text-muted ml-1">
+              Cancel anytime. No commitment required.
+            </Text>
+          </View>
         </View>
 
         {/* Restore + Dismiss */}
@@ -340,13 +358,13 @@ function FallbackPaywall({
             className="py-3"
           >
             {restoring ? (
-              <ActivityIndicator color="#6B7280" size="small" />
+              <ActivityIndicator color={isDark ? '#94A3B8' : '#6B7280'} size="small" />
             ) : (
-              <Text className="text-sm text-gray-500">Restore Purchase</Text>
+              <Text className="text-sm text-text-secondary">Restore Purchase</Text>
             )}
           </Pressable>
           <Pressable onPress={onDismiss} className="py-2">
-            <Text className="text-sm text-gray-400">Maybe Later</Text>
+            <Text className="text-sm text-text-muted">Maybe Later</Text>
           </Pressable>
         </View>
       </ScrollView>

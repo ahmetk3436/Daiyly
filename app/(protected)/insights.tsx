@@ -13,11 +13,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../lib/api';
 import { hapticLight, hapticSuccess, hapticError } from '../../lib/haptics';
+import { cacheSet, cacheGet } from '../../lib/cache';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { getGuestEntries } from '../../lib/guest';
 import CTABanner from '../../components/ui/CTABanner';
-import type { JournalStreak } from '../../types/journal';
+import type { JournalStreak, WeeklyReport } from '../../types/journal';
 
 // Type Definitions
 interface MoodDistributionItem {
@@ -154,13 +156,18 @@ const computeGuestInsights = (entries: any[]): WeeklyInsights | null => {
 export default function InsightsScreen() {
   const { isAuthenticated } = useAuth();
   const { isSubscribed } = useSubscription();
+  const { isDark } = useTheme();
 
   const [insights, setInsights] = useState<WeeklyInsights | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isStale, setIsStale] = useState(false);
   const [streak, setStreak] = useState<JournalStreak | null>(null);
   const [showFeatureBanner, setShowFeatureBanner] = useState(true);
+  const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportExpanded, setReportExpanded] = useState(false);
 
   const getMilestoneData = (currentStreak: number) => {
     const milestones = [3, 7, 14, 21, 30, 50, 100];
@@ -178,28 +185,28 @@ export default function InsightsScreen() {
           name: 'trending-up' as const,
           color: COLORS.success,
           label: 'Improving',
-          bg: '#ECFDF5',
+          bg: isDark ? '#064E3B' : '#ECFDF5',
         };
       case 'stable':
         return {
           name: 'remove' as const,
           color: COLORS.primaryLight,
           label: 'Stable',
-          bg: '#EFF6FF',
+          bg: isDark ? '#1E3A5F' : '#EFF6FF',
         };
       case 'declining':
         return {
           name: 'trending-down' as const,
           color: COLORS.warning,
           label: 'Needs Attention',
-          bg: '#FFFBEB',
+          bg: isDark ? '#78350F' : '#FFFBEB',
         };
       default:
         return {
           name: 'remove' as const,
           color: '#9CA3AF',
           label: 'Unknown',
-          bg: '#F3F4F6',
+          bg: isDark ? '#374151' : '#F3F4F6',
         };
     }
   };
@@ -215,6 +222,7 @@ export default function InsightsScreen() {
   const fetchInsights = useCallback(async () => {
     try {
       setError(null);
+      setIsStale(false);
       if (isAuthenticated) {
         const [response, streakRes] = await Promise.all([
           api.get('/journals/insights'),
@@ -222,6 +230,17 @@ export default function InsightsScreen() {
         ]);
         setInsights(response.data.data);
         setStreak(streakRes.data);
+
+        // Cache for offline
+        cacheSet('insights_data', response.data.data);
+        cacheSet('insights_streak', streakRes.data);
+
+        // Fetch AI weekly report
+        setReportLoading(true);
+        api.get('/journals/weekly-report')
+          .then(res => setWeeklyReport(res.data))
+          .catch(() => setWeeklyReport(null))
+          .finally(() => setReportLoading(false));
       } else {
         const guestEntries = await getGuestEntries();
         const guestInsights = computeGuestInsights(guestEntries);
@@ -230,6 +249,17 @@ export default function InsightsScreen() {
       }
       hapticSuccess();
     } catch (err: any) {
+      // Offline fallback: try cache
+      if (isAuthenticated) {
+        const cachedInsights = await cacheGet<WeeklyInsights>('insights_data');
+        const cachedStreak = await cacheGet<JournalStreak>('insights_streak');
+        if (cachedInsights) {
+          setInsights(cachedInsights.data);
+          setIsStale(true);
+          if (cachedStreak) setStreak(cachedStreak.data);
+          return;
+        }
+      }
       const errorMessage =
         err?.response?.data?.message ||
         'Failed to load insights. Please try again.';
@@ -256,10 +286,10 @@ export default function InsightsScreen() {
   // Loading State
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text className="text-base text-gray-400 mt-4">
+          <Text className="text-base text-text-muted mt-4">
             Analyzing your journal...
           </Text>
         </View>
@@ -270,19 +300,19 @@ export default function InsightsScreen() {
   // Error State
   if (error && !insights) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
         <View className="flex-1 items-center justify-center px-6">
-          <View className="w-16 h-16 rounded-full bg-red-100 items-center justify-center mb-4">
+          <View className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 items-center justify-center mb-4">
             <Ionicons
               name="cloud-offline-outline"
               size={32}
               color={COLORS.error}
             />
           </View>
-          <Text className="text-lg font-semibold text-gray-900 mb-2">
+          <Text className="text-lg font-semibold text-text-primary mb-2">
             Unable to Load Insights
           </Text>
-          <Text className="text-base text-gray-500 text-center mb-6">
+          <Text className="text-base text-text-secondary text-center mb-6">
             {error}
           </Text>
           <Pressable
@@ -305,13 +335,13 @@ export default function InsightsScreen() {
   // Empty State
   if (!insights) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-6xl mb-4">{'\u{1F4CA}'}</Text>
-          <Text className="text-xl font-bold text-gray-900 mb-2">
+          <Text className="text-xl font-bold text-text-primary mb-2">
             No Data Yet
           </Text>
-          <Text className="text-base text-gray-500 text-center mb-6">
+          <Text className="text-base text-text-secondary text-center mb-6">
             Start journaling to see your personalized mood insights and
             analytics.
           </Text>
@@ -348,7 +378,7 @@ export default function InsightsScreen() {
     getMilestoneData(currentStreak);
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
@@ -363,10 +393,10 @@ export default function InsightsScreen() {
       >
         {/* Header */}
         <View className="px-5 pt-6 pb-2">
-          <Text className="text-2xl font-bold text-gray-900">
+          <Text className="text-2xl font-bold text-text-primary">
             Your Insights
           </Text>
-          <Text className="text-sm text-gray-500 mt-1">
+          <Text className="text-sm text-text-secondary mt-1">
             {isAuthenticated
               ? 'Weekly mood analytics'
               : 'Basic insights from your entries'}
@@ -380,34 +410,127 @@ export default function InsightsScreen() {
               hapticLight();
               router.push('/(auth)/register');
             }}
-            className="mx-5 mt-3 bg-purple-50 rounded-2xl p-4 border border-purple-100 active:opacity-80"
+            className="mx-5 mt-3 bg-purple-50 dark:bg-purple-900/30 rounded-2xl p-4 border border-purple-100 dark:border-purple-800 active:opacity-80"
           >
             <View className="flex-row items-center">
               <Ionicons
                 name="person-add-outline"
                 size={22}
-                color={COLORS.purple}
+                color={isDark ? '#C084FC' : COLORS.purple}
               />
               <View className="ml-3 flex-1">
-                <Text className="text-sm font-semibold text-purple-900">
+                <Text className="text-sm font-semibold text-purple-900 dark:text-purple-200">
                   Create Account to Sync
                 </Text>
-                <Text className="text-xs text-purple-600">
+                <Text className="text-xs text-purple-600 dark:text-purple-400">
                   Unlock premium analytics & sync across devices
                 </Text>
               </View>
               <Ionicons
                 name="chevron-forward"
                 size={18}
-                color={COLORS.purple}
+                color={isDark ? '#C084FC' : COLORS.purple}
               />
             </View>
           </Pressable>
         )}
 
+        {/* Offline indicator */}
+        {isStale && (
+          <View className="mx-5 mt-2 bg-amber-50 dark:bg-amber-900/20 rounded-xl px-4 py-2 flex-row items-center border border-amber-100 dark:border-amber-800">
+            <Ionicons name="cloud-offline-outline" size={14} color="#D97706" />
+            <Text className="text-xs text-amber-700 dark:text-amber-400 ml-2">
+              Showing cached data — pull to refresh
+            </Text>
+          </View>
+        )}
+
         <View className="px-5 mt-4">
+          {/* AI Weekly Summary */}
+          {isAuthenticated && (
+            <Pressable
+              onPress={() => {
+                if (!isSubscribed) {
+                  router.push('/(protected)/paywall');
+                  return;
+                }
+                hapticLight();
+                setReportExpanded(!reportExpanded);
+              }}
+              className="bg-surface-elevated rounded-2xl p-5 mb-3 border border-border"
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center">
+                  <Ionicons name="sparkles" size={18} color="#8B5CF6" />
+                  <Text className="text-base font-bold text-text-primary ml-2">
+                    Your Weekly Summary
+                  </Text>
+                </View>
+                {!isSubscribed ? (
+                  <View className="rounded-full px-2.5 py-0.5" style={{ backgroundColor: isDark ? '#2E1065' : '#F3E8FF' }}>
+                    <Text className="text-xs font-bold" style={{ color: '#8B5CF6' }}>PRO</Text>
+                  </View>
+                ) : (
+                  <Ionicons
+                    name={reportExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color={isDark ? '#64748B' : '#9CA3AF'}
+                  />
+                )}
+              </View>
+
+              {!isSubscribed && (
+                <Text className="text-xs text-text-muted mt-2">
+                  Get AI-powered insights about your journaling patterns
+                </Text>
+              )}
+
+              {reportExpanded && isSubscribed && weeklyReport && (
+                <View className="mt-4">
+                  <Text className="text-sm text-text-primary leading-relaxed">
+                    {weeklyReport.narrative}
+                  </Text>
+
+                  {weeklyReport.key_themes.length > 0 && (
+                    <View className="flex-row flex-wrap mt-3" style={{ gap: 6 }}>
+                      {weeklyReport.key_themes.map((theme, i) => (
+                        <View key={i} className="rounded-full px-3 py-1 bg-surface-elevated">
+                          <Text className="text-xs text-text-secondary">{theme}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {weeklyReport.mood_explanation ? (
+                    <View className="mt-3 p-3 rounded-xl" style={{ backgroundColor: isDark ? '#1E293B' : '#F0F9FF' }}>
+                      <Text className="text-xs font-semibold text-text-muted mb-1">Mood Pattern</Text>
+                      <Text className="text-sm text-text-secondary">{weeklyReport.mood_explanation}</Text>
+                    </View>
+                  ) : null}
+
+                  {weeklyReport.suggestion ? (
+                    <View className="mt-3 p-3 rounded-xl" style={{ backgroundColor: isDark ? '#1A2E1A' : '#F0FDF4' }}>
+                      <View className="flex-row items-center mb-1">
+                        <Ionicons name="bulb-outline" size={14} color="#22C55E" />
+                        <Text className="text-xs font-semibold ml-1" style={{ color: '#22C55E' }}>Suggestion</Text>
+                      </View>
+                      <Text className="text-sm text-text-secondary">{weeklyReport.suggestion}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              )}
+
+              {reportExpanded && isSubscribed && !weeklyReport && reportLoading && (
+                <View className="mt-4 items-center py-4">
+                  <ActivityIndicator size="small" color="#8B5CF6" />
+                  <Text className="text-xs text-text-muted mt-2">Generating your summary...</Text>
+                </View>
+              )}
+            </Pressable>
+          )}
+
           {/* Mood Trend + Average Score Card */}
-          <View className="bg-white rounded-2xl p-5 mb-3 border border-gray-100">
+          <View className="bg-surface-elevated rounded-2xl p-5 mb-3 border border-border">
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center">
                 <View
@@ -421,7 +544,7 @@ export default function InsightsScreen() {
                   />
                 </View>
                 <View>
-                  <Text className="text-xs text-gray-400 uppercase tracking-wider">
+                  <Text className="text-xs text-text-muted uppercase tracking-wider">
                     Mood Trend
                   </Text>
                   <Text
@@ -432,14 +555,14 @@ export default function InsightsScreen() {
                   </Text>
                 </View>
               </View>
-              <Text className="text-xs text-gray-400">
+              <Text className="text-xs text-text-muted">
                 {insights.period_start} - {insights.period_end}
               </Text>
             </View>
 
             <View className="flex-row items-center justify-between">
               <View>
-                <Text className="text-xs text-gray-400 mb-1">Average Score</Text>
+                <Text className="text-xs text-text-muted mb-1">Average Score</Text>
                 <View className="flex-row items-baseline">
                   <Text
                     className="text-5xl font-bold"
@@ -447,28 +570,28 @@ export default function InsightsScreen() {
                   >
                     {Math.round(insights.average_mood_score)}
                   </Text>
-                  <Text className="text-xl text-gray-300 ml-1">/100</Text>
+                  <Text className="text-xl text-text-muted ml-1">/100</Text>
                 </View>
               </View>
               <View className="items-center">
                 <Text className="text-5xl">
                   {insights.top_mood_emoji}
                 </Text>
-                <Text className="text-xs text-gray-400 mt-1">Top Mood</Text>
+                <Text className="text-xs text-text-muted mt-1">Top Mood</Text>
               </View>
             </View>
           </View>
 
           {/* Mood Distribution */}
-          <View className="bg-white rounded-2xl p-5 mb-3 border border-gray-100">
-            <Text className="text-base font-bold text-gray-900 mb-4">
+          <View className="bg-surface-elevated rounded-2xl p-5 mb-3 border border-border">
+            <Text className="text-base font-bold text-text-primary mb-4">
               Mood Breakdown
             </Text>
 
             {insights.mood_distribution.map((item, index) => (
               <View key={index} className="flex-row items-center mb-3">
                 <Text className="text-xl w-8">{item.emoji}</Text>
-                <View className="flex-1 h-7 bg-gray-100 rounded-full overflow-hidden mx-2">
+                <View className="flex-1 h-7 bg-surface-muted rounded-full overflow-hidden mx-2">
                   <View
                     className="h-full rounded-full flex-row items-center justify-end pr-2"
                     style={{
@@ -486,19 +609,20 @@ export default function InsightsScreen() {
                     )}
                   </View>
                 </View>
-                <Text className="text-sm text-gray-500 w-10 text-right font-medium">
+                <Text className="text-sm text-text-secondary w-10 text-right font-medium">
                   {item.percentage}%
                 </Text>
               </View>
             ))}
           </View>
 
-          {/* 7-Day Mood Chart (auth only) */}
+          {/* 7-Day Mood Chart */}
           {isAuthenticated &&
             insights.daily_scores &&
-            insights.daily_scores.length > 0 && (
-              <View className="bg-white rounded-2xl p-5 mb-3 border border-gray-100">
-                <Text className="text-base font-bold text-gray-900 mb-4">
+            insights.daily_scores.length > 0 &&
+            isSubscribed && (
+              <View className="bg-surface-elevated rounded-2xl p-5 mb-3 border border-border">
+                <Text className="text-base font-bold text-text-primary mb-4">
                   7-Day Mood Scores
                 </Text>
 
@@ -522,7 +646,7 @@ export default function InsightsScreen() {
                             backgroundColor: barColor,
                           }}
                         />
-                        <Text className="text-[10px] text-gray-400 mt-2 font-medium">
+                        <Text className="text-[10px] text-text-muted mt-2 font-medium">
                           {day.day_name.substring(0, 3)}
                         </Text>
                       </View>
@@ -532,23 +656,70 @@ export default function InsightsScreen() {
               </View>
             )}
 
+          {/* 7-Day Mood Chart -- Locked Preview for non-subscribers */}
+          {showPremiumUpsell && isAuthenticated && insights.daily_scores && insights.daily_scores.length > 0 && (
+            <Pressable
+              onPress={() => {
+                hapticLight();
+                router.push('/(protected)/paywall?source=insights-chart');
+              }}
+              className="bg-surface-elevated rounded-2xl mb-3 border border-border relative overflow-hidden active:scale-[0.98]"
+            >
+              <View className="p-5 opacity-30">
+                <Text className="text-base font-bold text-text-primary mb-4">
+                  7-Day Mood Scores
+                </Text>
+                <View className="flex-row items-end justify-between h-36 px-1">
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => {
+                    const fakeHeight = [65, 72, 58, 80, 45, 75, 68][index];
+                    return (
+                      <View key={index} className="items-center flex-1">
+                        <View
+                          className="w-7 rounded-t-lg bg-blue-400"
+                          style={{ height: (fakeHeight / 100) * MAX_BAR_HEIGHT }}
+                        />
+                        <Text className="text-[10px] text-text-muted mt-2 font-medium">
+                          {day}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+              <View
+                className="absolute inset-0 items-center justify-center"
+                style={{ backgroundColor: isDark ? 'rgba(15,23,42,0.80)' : 'rgba(255,255,255,0.80)' }}
+              >
+                <View className="bg-blue-100 dark:bg-blue-900/40 w-14 h-14 rounded-full items-center justify-center mb-2">
+                  <Ionicons name="bar-chart" size={24} color="#2563EB" />
+                </View>
+                <Text className="text-blue-700 dark:text-blue-300 font-bold text-sm">
+                  AI-Powered Mood Chart
+                </Text>
+                <Text className="text-blue-500 dark:text-blue-400 text-xs mt-1">
+                  Unlock with Premium
+                </Text>
+              </View>
+            </Pressable>
+          )}
+
           {/* Streak Card */}
-          <View className="bg-white rounded-2xl p-5 mb-3 border border-gray-100">
+          <View className="bg-surface-elevated rounded-2xl p-5 mb-3 border border-border">
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center">
                 <Text className="text-3xl">{'\u{1F525}'}</Text>
                 <View className="ml-2">
-                  <Text className="text-2xl font-bold text-gray-900">
+                  <Text className="text-2xl font-bold text-text-primary">
                     Day {currentStreak}
                   </Text>
-                  <Text className="text-xs text-gray-400">
+                  <Text className="text-xs text-text-muted">
                     Current streak
                   </Text>
                 </View>
               </View>
 
-              <View className="bg-amber-50 rounded-full px-3 py-1 border border-amber-200">
-                <Text className="text-xs font-bold text-amber-700">
+              <View className="bg-amber-50 dark:bg-amber-900/30 rounded-full px-3 py-1 border border-amber-200 dark:border-amber-700">
+                <Text className="text-xs font-bold text-amber-700 dark:text-amber-400">
                   {'\u{1F3C6}'} Best: {longestStreak}
                 </Text>
               </View>
@@ -556,7 +727,7 @@ export default function InsightsScreen() {
 
             {/* Progress Bar */}
             <View className="mt-4">
-              <View className="bg-gray-100 rounded-full h-2.5 overflow-hidden">
+              <View className="bg-surface-muted rounded-full h-2.5 overflow-hidden">
                 <View
                   className="bg-amber-500 rounded-full h-2.5"
                   style={{
@@ -565,12 +736,12 @@ export default function InsightsScreen() {
                 />
               </View>
               <View className="flex-row items-center justify-between mt-1.5">
-                <Text className="text-xs text-gray-400">
+                <Text className="text-xs text-text-muted">
                   {currentStreak}/{nextMilestone} to next milestone
                 </Text>
                 {isAtMilestone && (
-                  <View className="bg-purple-50 rounded-full px-2 py-0.5">
-                    <Text className="text-xs font-semibold text-purple-600">
+                  <View className="bg-purple-50 dark:bg-purple-900/30 rounded-full px-2 py-0.5">
+                    <Text className="text-xs font-semibold text-purple-600 dark:text-purple-400">
                       {'\u2728'} Milestone!
                     </Text>
                   </View>
@@ -578,21 +749,58 @@ export default function InsightsScreen() {
               </View>
             </View>
 
-            <View className="flex-row items-center mt-3 pt-3 border-t border-gray-100">
+            <View className="flex-row items-center mt-3 pt-3 border-t border-border">
               <Ionicons
                 name="document-text-outline"
                 size={14}
-                color="#9CA3AF"
+                color={isDark ? '#64748B' : '#9CA3AF'}
               />
-              <Text className="text-xs text-gray-400 ml-1">
+              <Text className="text-xs text-text-muted ml-1">
                 {totalEntries} total entries
               </Text>
             </View>
           </View>
 
+          {/* Share Insights CTA */}
+          <Pressable
+            onPress={() => {
+              hapticLight();
+              if (showPremiumUpsell) {
+                router.push('/(protected)/paywall?source=insights-share');
+              } else {
+                router.push({
+                  pathname: '/(protected)/sharing',
+                  params: { cardType: 'weekly' },
+                } as any);
+              }
+            }}
+            className="bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-4 mb-3 flex-row items-center border border-purple-100 dark:border-purple-800 active:scale-[0.98]"
+          >
+            <View className="bg-purple-100 dark:bg-purple-800 w-10 h-10 rounded-xl items-center justify-center mr-3">
+              <Ionicons name="share-social-outline" size={20} color={isDark ? '#C084FC' : '#7C3AED'} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-purple-900 dark:text-purple-200">
+                Share Your Insights
+              </Text>
+              <Text className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">
+                {showPremiumUpsell
+                  ? 'Premium: Create beautiful shareable mood cards'
+                  : 'Create a beautiful card to share your mood stats'}
+              </Text>
+            </View>
+            {showPremiumUpsell ? (
+              <View className="bg-purple-200 dark:bg-purple-800 rounded-full px-2 py-0.5">
+                <Text className="text-[10px] font-bold text-purple-700 dark:text-purple-300">PRO</Text>
+              </View>
+            ) : (
+              <Ionicons name="chevron-forward" size={18} color={isDark ? '#C084FC' : '#7C3AED'} />
+            )}
+          </Pressable>
+
           {/* Writing Stats */}
-          <View className="bg-white rounded-2xl p-5 mb-3 border border-gray-100">
-            <Text className="text-base font-bold text-gray-900 mb-4">
+          <View className="bg-surface-elevated rounded-2xl p-5 mb-3 border border-border">
+            <Text className="text-base font-bold text-text-primary mb-4">
               Writing Stats
             </Text>
 
@@ -600,7 +808,7 @@ export default function InsightsScreen() {
               <View className="items-center flex-1">
                 <View
                   className="w-11 h-11 rounded-full items-center justify-center mb-2"
-                  style={{ backgroundColor: '#EFF6FF' }}
+                  style={{ backgroundColor: isDark ? '#1E3A5F' : '#EFF6FF' }}
                 >
                   <Ionicons
                     name="document-text"
@@ -608,10 +816,10 @@ export default function InsightsScreen() {
                     color={COLORS.primary}
                   />
                 </View>
-                <Text className="text-xl font-bold text-gray-900">
+                <Text className="text-xl font-bold text-text-primary">
                   {insights.total_entries}
                 </Text>
-                <Text className="text-xs text-gray-400 mt-0.5">
+                <Text className="text-xs text-text-muted mt-0.5">
                   Entries
                 </Text>
               </View>
@@ -619,14 +827,14 @@ export default function InsightsScreen() {
               <View className="items-center flex-1">
                 <View
                   className="w-11 h-11 rounded-full items-center justify-center mb-2"
-                  style={{ backgroundColor: '#F0FDF4' }}
+                  style={{ backgroundColor: isDark ? '#064E3B' : '#F0FDF4' }}
                 >
                   <Ionicons name="text" size={20} color={COLORS.success} />
                 </View>
-                <Text className="text-xl font-bold text-gray-900">
+                <Text className="text-xl font-bold text-text-primary">
                   {insights.avg_word_count}
                 </Text>
-                <Text className="text-xs text-gray-400 mt-0.5">
+                <Text className="text-xs text-text-muted mt-0.5">
                   Avg Words
                 </Text>
               </View>
@@ -634,14 +842,14 @@ export default function InsightsScreen() {
               <View className="items-center flex-1">
                 <View
                   className="w-11 h-11 rounded-full items-center justify-center mb-2"
-                  style={{ backgroundColor: '#FEF3C7' }}
+                  style={{ backgroundColor: isDark ? '#78350F' : '#FEF3C7' }}
                 >
                   <Ionicons name="library" size={20} color={COLORS.accent} />
                 </View>
-                <Text className="text-xl font-bold text-gray-900">
+                <Text className="text-xl font-bold text-text-primary">
                   {insights.total_words}
                 </Text>
-                <Text className="text-xs text-gray-400 mt-0.5">
+                <Text className="text-xs text-text-muted mt-0.5">
                   Total Words
                 </Text>
               </View>
@@ -652,8 +860,8 @@ export default function InsightsScreen() {
           {isAuthenticated &&
             insights.daily_scores &&
             insights.daily_scores.length > 0 && (
-              <View className="bg-white rounded-2xl p-5 mb-3 border border-gray-100">
-                <Text className="text-base font-bold text-gray-900 mb-3">
+              <View className="bg-surface-elevated rounded-2xl p-5 mb-3 border border-border">
+                <Text className="text-base font-bold text-text-primary mb-3">
                   Weekly Frequency
                 </Text>
                 <View className="flex-row justify-between">
@@ -666,7 +874,7 @@ export default function InsightsScreen() {
                         <View key={day} className="items-center">
                           <View
                             className={`w-8 h-8 rounded-full items-center justify-center ${
-                              hasEntry ? 'bg-blue-100' : 'bg-gray-100'
+                              hasEntry ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-surface-muted'
                             }`}
                           >
                             <Ionicons
@@ -676,10 +884,10 @@ export default function InsightsScreen() {
                                   : 'ellipse-outline'
                               }
                               size={hasEntry ? 18 : 14}
-                              color={hasEntry ? '#2563EB' : '#D1D5DB'}
+                              color={hasEntry ? '#2563EB' : (isDark ? '#475569' : '#D1D5DB')}
                             />
                           </View>
-                          <Text className="text-[10px] text-gray-400 mt-1 font-medium">
+                          <Text className="text-[10px] text-text-muted mt-1 font-medium">
                             {day}
                           </Text>
                         </View>
@@ -690,33 +898,90 @@ export default function InsightsScreen() {
               </View>
             )}
 
-          {/* Premium Insights Preview */}
-          {showPremiumUpsell && insights.total_entries >= 7 && (
+          {/* Premium Insights Preview -- Word Cloud */}
+          {showPremiumUpsell && insights.total_entries >= 3 && (
             <Pressable
               onPress={() => {
                 hapticLight();
-                router.push('/(protected)/paywall?source=insights');
+                router.push('/(protected)/paywall?source=insights-wordcloud');
               }}
-              className="bg-white rounded-2xl p-5 mb-3 border border-gray-100 relative overflow-hidden active:scale-[0.98]"
+              className="bg-surface-elevated rounded-2xl mb-3 border border-border relative overflow-hidden active:scale-[0.98]"
             >
-              <View className="opacity-40">
-                <Text className="text-base font-bold text-gray-900 mb-3">
+              <View className="p-5 opacity-25">
+                <Text className="text-base font-bold text-text-primary mb-3">
                   Word Cloud Analysis
                 </Text>
-                <View className="h-28 bg-gray-100 rounded-xl" />
+                <View className="h-32 bg-surface-muted rounded-xl items-center justify-center">
+                  <View className="flex-row flex-wrap justify-center px-4" style={{ gap: 6 }}>
+                    <Text className="text-2xl font-bold text-blue-500">grateful</Text>
+                    <Text className="text-lg font-semibold text-purple-500">happy</Text>
+                    <Text className="text-base text-pink-500">family</Text>
+                    <Text className="text-xl font-bold text-green-500">growth</Text>
+                    <Text className="text-sm text-amber-500">mindful</Text>
+                    <Text className="text-lg font-semibold text-blue-400">peace</Text>
+                    <Text className="text-base text-purple-400">love</Text>
+                  </View>
+                </View>
               </View>
               <View
                 className="absolute inset-0 items-center justify-center"
-                style={{ backgroundColor: 'rgba(255,255,255,0.85)' }}
+                style={{ backgroundColor: isDark ? 'rgba(15,23,42,0.80)' : 'rgba(255,255,255,0.80)' }}
               >
-                <View className="bg-purple-100 w-14 h-14 rounded-full items-center justify-center mb-2">
-                  <Ionicons name="lock-closed" size={24} color="#8B5CF6" />
+                <View className="bg-purple-100 dark:bg-purple-900/40 w-14 h-14 rounded-full items-center justify-center mb-2">
+                  <Ionicons name="cloud-outline" size={24} color="#8B5CF6" />
                 </View>
-                <Text className="text-purple-700 font-bold text-sm">
-                  Premium Feature
+                <Text className="text-purple-700 dark:text-purple-300 font-bold text-sm">
+                  See Your Most-Used Words
                 </Text>
-                <Text className="text-purple-500 text-xs mt-1">
-                  Tap to unlock
+                <Text className="text-purple-500 dark:text-purple-400 text-xs mt-1">
+                  Unlock with Premium
+                </Text>
+              </View>
+            </Pressable>
+          )}
+
+          {/* Premium Insights Preview -- AI Sentiment Trends */}
+          {showPremiumUpsell && insights.total_entries >= 3 && (
+            <Pressable
+              onPress={() => {
+                hapticLight();
+                router.push('/(protected)/paywall?source=insights-sentiment');
+              }}
+              className="bg-surface-elevated rounded-2xl mb-3 border border-border relative overflow-hidden active:scale-[0.98]"
+            >
+              <View className="p-5 opacity-25">
+                <Text className="text-base font-bold text-text-primary mb-3">
+                  AI Sentiment Analysis
+                </Text>
+                <View className="h-24 bg-surface-muted rounded-xl items-center justify-center">
+                  <View className="flex-row items-center" style={{ gap: 8 }}>
+                    <View className="items-center">
+                      <Text className="text-2xl">72%</Text>
+                      <Text className="text-xs text-text-muted">Positive</Text>
+                    </View>
+                    <View className="items-center">
+                      <Text className="text-2xl">18%</Text>
+                      <Text className="text-xs text-text-muted">Neutral</Text>
+                    </View>
+                    <View className="items-center">
+                      <Text className="text-2xl">10%</Text>
+                      <Text className="text-xs text-text-muted">Reflective</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+              <View
+                className="absolute inset-0 items-center justify-center"
+                style={{ backgroundColor: isDark ? 'rgba(15,23,42,0.80)' : 'rgba(255,255,255,0.80)' }}
+              >
+                <View className="bg-green-100 dark:bg-green-900/40 w-14 h-14 rounded-full items-center justify-center mb-2">
+                  <Ionicons name="analytics" size={24} color="#10B981" />
+                </View>
+                <Text className="text-green-700 dark:text-green-300 font-bold text-sm">
+                  AI-Powered Sentiment Trends
+                </Text>
+                <Text className="text-green-500 dark:text-green-400 text-xs mt-1">
+                  Unlock with Premium
                 </Text>
               </View>
             </Pressable>
@@ -724,7 +989,7 @@ export default function InsightsScreen() {
 
           {/* Feature Banner */}
           {showPremiumUpsell &&
-            insights.total_entries >= 7 &&
+            insights.total_entries >= 3 &&
             showFeatureBanner && (
               <View className="mb-3">
                 <CTABanner

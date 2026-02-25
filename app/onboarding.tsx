@@ -67,7 +67,7 @@ export default function OnboardingScreen() {
     return (
       <View
         key={index}
-        className={`h-2 rounded-full ${isActive ? 'bg-blue-600' : 'bg-gray-300'}`}
+        className={`h-2 rounded-full ${isActive ? 'bg-blue-600' : 'bg-surface-muted'}`}
         style={{ width: isActive ? 32 : 8 }}
       />
     );
@@ -83,10 +83,10 @@ export default function OnboardingScreen() {
         style={{ opacity: fadeAnim }}
       >
         <Text className="text-7xl mb-6">📓</Text>
-        <Text className="text-3xl font-bold text-gray-900 text-center">
+        <Text className="text-3xl font-bold text-text-primary text-center">
           Welcome to Daiyly
         </Text>
-        <Text className="text-lg text-gray-500 mt-2 text-center">
+        <Text className="text-lg text-text-secondary mt-2 text-center">
           Your private mood journal
         </Text>
       </Animated.View>
@@ -109,8 +109,8 @@ export default function OnboardingScreen() {
         <Ionicons name={iconName} size={28} color={iconColor} />
       </View>
       <View className="flex-1 ml-4">
-        <Text className="text-base font-semibold text-gray-900">{title}</Text>
-        <Text className="text-sm text-gray-500 mt-1">{subtitle}</Text>
+        <Text className="text-base font-semibold text-text-primary">{title}</Text>
+        <Text className="text-sm text-text-secondary mt-1">{subtitle}</Text>
       </View>
     </View>
   );
@@ -123,24 +123,24 @@ export default function OnboardingScreen() {
       {renderFeatureCard(
         'happy-outline',
         '#2563eb',
-        'bg-blue-50',
-        'bg-blue-100',
+        'bg-blue-50 dark:bg-blue-900/20',
+        'bg-blue-100 dark:bg-blue-900/40',
         'Track Your Mood',
         'Log how you feel with emojis and scores'
       )}
       {renderFeatureCard(
         'analytics-outline',
         '#9333ea',
-        'bg-purple-50',
-        'bg-purple-100',
+        'bg-purple-50 dark:bg-purple-900/20',
+        'bg-purple-100 dark:bg-purple-900/40',
         'See Your Patterns',
         'Discover mood trends with weekly insights'
       )}
       {renderFeatureCard(
         'flame-outline',
         '#d97706',
-        'bg-amber-50',
-        'bg-amber-100',
+        'bg-amber-50 dark:bg-amber-900/20',
+        'bg-amber-100 dark:bg-amber-900/40',
         'Build Streaks',
         'Stay consistent with daily journaling streaks',
         true
@@ -154,10 +154,10 @@ export default function OnboardingScreen() {
       style={{ width: SCREEN_WIDTH }}
     >
       <Text className="text-6xl mb-4">✨</Text>
-      <Text className="text-2xl font-bold text-gray-900 text-center">
+      <Text className="text-2xl font-bold text-text-primary text-center">
         Ready to start?
       </Text>
-      <Text className="text-base text-gray-500 mt-2 text-center">
+      <Text className="text-base text-text-secondary mt-2 text-center">
         3 free entries, no account needed
       </Text>
 
@@ -180,7 +180,7 @@ export default function OnboardingScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-background">
       {/* Skip Button - Only visible on pages 0 and 1 */}
       {activePage < 2 && (
         <View className="flex-row justify-end px-6 pt-2">
@@ -188,7 +188,7 @@ export default function OnboardingScreen() {
             className="py-2 px-3"
             onPress={handleSkip}
           >
-            <Text className="text-sm text-gray-500 font-medium">Skip</Text>
+            <Text className="text-sm text-text-secondary font-medium">Skip</Text>
           </Pressable>
         </View>
       )}

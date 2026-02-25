@@ -6,6 +6,7 @@ export interface JournalEntry {
   content: string;
   photo_url: string;
   card_color: string;
+  tags?: string[];
   entry_date: string;
   is_private: boolean;
   created_at: string;
@@ -41,13 +42,28 @@ export interface DailyScore {
   score: number;
 }
 
+export interface WeeklyReport {
+  narrative: string;
+  key_themes: string[];
+  mood_explanation: string;
+  suggestion: string;
+  week_start: string;
+  stats: {
+    total_entries: number;
+    avg_mood_score: number;
+    top_mood_emoji: string;
+  };
+}
+
 export interface GuestEntry {
   id: string;
   mood_emoji: string;
   mood_score: number;
   content: string;
   card_color: string;
+  tags?: string[];
   created_at: string;
+  entry_date?: string;
 }
 
 export interface MoodOption {

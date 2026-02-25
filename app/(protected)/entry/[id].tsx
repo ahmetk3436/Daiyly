@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,14 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Share,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { captureRef } from 'react-native-view-shot';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../../lib/api';
+import { getGuestEntries, GUEST_ENTRIES_KEY } from '../../../lib/guest';
+import { useAuth } from '../../../contexts/AuthContext';
 import {
   hapticLight,
   hapticSuccess,
@@ -26,6 +27,7 @@ import {
   ShareableMoodCard,
   getMoodLabel,
 } from '../../../components/ui/MoodCard';
+import { useTheme } from '../../../contexts/ThemeContext';
 import type { JournalEntry } from '../../../types/journal';
 
 const MOOD_EMOJIS: string[] = [
@@ -81,6 +83,8 @@ function getMoodScoreColor(score: number): string {
 
 export default function EntryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { isDark } = useTheme();
+  const { isGuest } = useAuth();
 
   const [entry, setEntry] = useState<JournalEntry | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -92,13 +96,27 @@ export default function EntryDetailScreen() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const shareableCardRef = useRef<View>(null);
-
   const fetchEntry = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/journals/${id}`);
-      const fetchedEntry = response.data.data || response.data;
+      let fetchedEntry: JournalEntry;
+
+      if (isGuest) {
+        // Guest mode: load from AsyncStorage
+        const guestEntries = await getGuestEntries();
+        const found = guestEntries.find((e) => e.id === id);
+        if (!found) {
+          hapticError();
+          setEntry(null);
+          return;
+        }
+        fetchedEntry = found as unknown as JournalEntry;
+      } else {
+        // Authenticated: load from API
+        const response = await api.get(`/journals/${id}`);
+        fetchedEntry = response.data.data || response.data;
+      }
+
       setEntry(fetchedEntry);
       setEditContent(fetchedEntry.content);
       setEditMoodScore(fetchedEntry.mood_score || 50);
@@ -111,7 +129,7 @@ export default function EntryDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, isGuest]);
 
   useEffect(() => {
     fetchEntry();
@@ -142,15 +160,33 @@ export default function EntryDetailScreen() {
 
     try {
       setSaving(true);
-      const response = await api.put(`/journals/${id}`, {
-        content: editContent.trim(),
-        mood_score: editMoodScore,
-        mood_emoji: editMoodEmoji,
-        card_color: editCardColor,
-      });
 
-      const updatedEntry = response.data.data || response.data;
-      setEntry(updatedEntry);
+      if (isGuest) {
+        // Guest mode: update in AsyncStorage
+        const guestEntries = await getGuestEntries();
+        const idx = guestEntries.findIndex((e) => e.id === id);
+        if (idx !== -1) {
+          guestEntries[idx] = {
+            ...guestEntries[idx],
+            content: editContent.trim(),
+            mood_score: editMoodScore,
+            mood_emoji: editMoodEmoji,
+            card_color: editCardColor,
+          };
+          await AsyncStorage.setItem(GUEST_ENTRIES_KEY, JSON.stringify(guestEntries));
+          setEntry(guestEntries[idx] as unknown as JournalEntry);
+        }
+      } else {
+        const response = await api.put(`/journals/${id}`, {
+          content: editContent.trim(),
+          mood_score: editMoodScore,
+          mood_emoji: editMoodEmoji,
+          card_color: editCardColor,
+        });
+        const updatedEntry = response.data.data || response.data;
+        setEntry(updatedEntry);
+      }
+
       setIsEditing(false);
       hapticSuccess();
     } catch (error: any) {
@@ -175,7 +211,14 @@ export default function EntryDetailScreen() {
           onPress: async () => {
             try {
               setDeleting(true);
-              await api.delete(`/journals/${id}`);
+              if (isGuest) {
+                // Guest mode: remove from AsyncStorage
+                const guestEntries = await getGuestEntries();
+                const filtered = guestEntries.filter((e) => e.id !== id);
+                await AsyncStorage.setItem(GUEST_ENTRIES_KEY, JSON.stringify(filtered));
+              } else {
+                await api.delete(`/journals/${id}`);
+              }
               hapticSuccess();
               router.back();
             } catch (error: any) {
@@ -193,41 +236,20 @@ export default function EntryDetailScreen() {
     );
   };
 
-  const handleShare = async () => {
-    if (!entry || !shareableCardRef.current) {
-      hapticError();
-      return;
-    }
-
-    try {
-      const uri = await captureRef(shareableCardRef, {
-        format: 'png',
-        quality: 0.9,
-      });
-
-      if (uri) {
-        hapticSelection();
-        await Share.share({
-          url: uri,
-          message: `On ${formatDate(entry.entry_date || entry.created_at)}, I was feeling ${entry.mood_emoji} ${getMoodLabel(entry.mood_score)} (${entry.mood_score}/100)\n\nTrack your mood with Daiyly!`,
-        });
-      }
-    } catch (error) {
-      console.error('Share error:', error);
-      hapticError();
-      Alert.alert(
-        'Share Failed',
-        'Could not share your mood card. Please try again.'
-      );
-    }
+  const handleShare = () => {
+    hapticLight();
+    router.push({
+      pathname: '/(protected)/sharing',
+      params: { entryId: id, cardType: 'entry' },
+    });
   };
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-background" edges={['top']}>
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#2563EB" />
-          <Text className="text-gray-400 mt-4">Loading entry...</Text>
+          <Text className="text-text-muted mt-4">Loading entry...</Text>
         </View>
       </SafeAreaView>
     );
@@ -235,15 +257,15 @@ export default function EntryDetailScreen() {
 
   if (!entry) {
     return (
-      <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-background" edges={['top']}>
         <View className="flex-1 items-center justify-center p-6">
-          <View className="bg-red-50 w-16 h-16 rounded-full items-center justify-center mb-4">
+          <View className="bg-red-50 dark:bg-red-900/30 w-16 h-16 rounded-full items-center justify-center mb-4">
             <Ionicons name="alert-circle-outline" size={32} color="#EF4444" />
           </View>
-          <Text className="text-lg font-semibold text-gray-800 mb-2">
+          <Text className="text-lg font-semibold text-text-primary mb-2">
             Entry not found
           </Text>
-          <Text className="text-sm text-gray-500 text-center mb-6">
+          <Text className="text-sm text-text-secondary text-center mb-6">
             Unable to load this journal entry. Please check your connection.
           </Text>
           <View className="flex-row" style={{ gap: 12 }}>
@@ -259,13 +281,13 @@ export default function EntryDetailScreen() {
               </Text>
             </Pressable>
             <Pressable
-              className="bg-gray-100 rounded-xl py-3 px-5"
+              className="bg-surface-muted rounded-xl py-3 px-5"
               onPress={() => {
                 hapticLight();
                 router.back();
               }}
             >
-              <Text className="text-gray-700 font-semibold text-sm">
+              <Text className="text-text-primary font-semibold text-sm">
                 Go Back
               </Text>
             </Pressable>
@@ -276,13 +298,13 @@ export default function EntryDetailScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
         {/* Header */}
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-100">
+        <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
           <Pressable
             onPress={() => {
               hapticLight();
@@ -290,25 +312,27 @@ export default function EntryDetailScreen() {
             }}
             className="flex-row items-center"
           >
-            <Ionicons name="chevron-back" size={24} color="#374151" />
-            <Text className="text-base text-gray-600 ml-1">Back</Text>
+            <Ionicons name="chevron-back" size={24} color={isDark ? '#94A3B8' : '#374151'} />
+            <Text className="text-base text-text-secondary ml-1">Back</Text>
           </Pressable>
 
           {!isEditing && (
             <View className="flex-row" style={{ gap: 8 }}>
-              <Pressable
-                onPress={handleShare}
-                className="bg-blue-50 p-2 rounded-full"
-              >
-                <Ionicons
-                  name="share-outline"
-                  size={20}
-                  color="#2563EB"
-                />
-              </Pressable>
+              {!isGuest && (
+                <Pressable
+                  onPress={handleShare}
+                  className="bg-blue-50 dark:bg-blue-900/30 p-2 rounded-full"
+                >
+                  <Ionicons
+                    name="share-outline"
+                    size={20}
+                    color="#2563EB"
+                  />
+                </Pressable>
+              )}
               <Pressable
                 onPress={handleEdit}
-                className="bg-blue-50 p-2 rounded-full"
+                className="bg-blue-50 dark:bg-blue-900/30 p-2 rounded-full"
               >
                 <Ionicons
                   name="pencil-outline"
@@ -318,7 +342,7 @@ export default function EntryDetailScreen() {
               </Pressable>
               <Pressable
                 onPress={handleDelete}
-                className="bg-red-50 p-2 rounded-full"
+                className="bg-red-50 dark:bg-red-900/30 p-2 rounded-full"
               >
                 <Ionicons
                   name="trash-outline"
@@ -341,7 +365,6 @@ export default function EntryDetailScreen() {
               {/* Shareable MoodCard Preview */}
               <View className="items-center mb-5">
                 <ShareableMoodCard
-                  ref={shareableCardRef}
                   entry={{
                     mood_emoji: entry.mood_emoji || '\u{1F60A}',
                     mood_score: entry.mood_score || 50,
@@ -353,14 +376,14 @@ export default function EntryDetailScreen() {
               </View>
 
               {/* Entry Detail Card */}
-              <View className="bg-white rounded-2xl p-5 border border-gray-100 mb-4">
+              <View className="bg-surface-elevated rounded-2xl p-5 border border-border mb-4">
                 {/* Date + Time */}
                 <View className="flex-row items-center justify-between mb-4">
                   <View>
-                    <Text className="text-sm font-medium text-gray-500">
+                    <Text className="text-sm font-medium text-text-secondary">
                       {formatDate(entry.entry_date || entry.created_at)}
                     </Text>
-                    <Text className="text-xs text-gray-400 mt-0.5">
+                    <Text className="text-xs text-text-muted mt-0.5">
                       {formatTime(entry.created_at)}
                     </Text>
                   </View>
@@ -374,14 +397,14 @@ export default function EntryDetailScreen() {
 
                 {/* Mood Section */}
                 <View
-                  className="flex-row items-center mb-4 pb-4 border-b border-gray-100"
+                  className="flex-row items-center mb-4 pb-4 border-b border-border"
                   style={{ gap: 16 }}
                 >
                   <Text className="text-5xl">
                     {entry.mood_emoji || '\u{1F60A}'}
                   </Text>
                   <View>
-                    <Text className="text-sm text-gray-400">Mood Score</Text>
+                    <Text className="text-sm text-text-muted">Mood Score</Text>
                     <View className="flex-row items-baseline">
                       <Text
                         className="text-2xl font-bold"
@@ -391,7 +414,7 @@ export default function EntryDetailScreen() {
                       >
                         {entry.mood_score || 0}
                       </Text>
-                      <Text className="text-sm text-gray-300 ml-0.5">
+                      <Text className="text-sm text-text-muted ml-0.5">
                         /100
                       </Text>
                     </View>
@@ -407,14 +430,14 @@ export default function EntryDetailScreen() {
                 </View>
 
                 {/* Content */}
-                <Text className="text-base text-gray-800 leading-relaxed">
+                <Text className="text-base text-text-primary leading-relaxed">
                   {entry.content}
                 </Text>
 
                 {/* Updated timestamp */}
                 {entry.updated_at &&
                   entry.updated_at !== entry.created_at && (
-                    <Text className="text-xs text-gray-400 mt-4 italic">
+                    <Text className="text-xs text-text-muted mt-4 italic">
                       Edited{' '}
                       {new Date(entry.updated_at).toLocaleDateString('en-US', {
                         month: 'short',
@@ -426,40 +449,42 @@ export default function EntryDetailScreen() {
                   )}
               </View>
 
-              {/* Share CTA */}
-              <Pressable
-                className="bg-blue-600 rounded-2xl py-4 items-center flex-row justify-center mb-4 active:bg-blue-700"
-                onPress={handleShare}
-              >
-                <Ionicons name="share-outline" size={20} color="#FFFFFF" />
-                <Text className="text-base font-semibold text-white ml-2">
-                  Share This Entry
-                </Text>
-              </Pressable>
+              {/* Share CTA (authenticated only) */}
+              {!isGuest && (
+                <Pressable
+                  className="bg-blue-600 rounded-2xl py-4 items-center flex-row justify-center mb-4 active:bg-blue-700"
+                  onPress={handleShare}
+                >
+                  <Ionicons name="share-outline" size={20} color="#FFFFFF" />
+                  <Text className="text-base font-semibold text-white ml-2">
+                    Share This Entry
+                  </Text>
+                </Pressable>
+              )}
             </>
           )}
 
           {/* EDIT MODE */}
           {isEditing && (
-            <View className="bg-white rounded-2xl p-5 border border-gray-100 mb-4">
+            <View className="bg-surface-elevated rounded-2xl p-5 border border-border mb-4">
               {/* Date Display */}
-              <Text className="text-sm text-gray-500 mb-4">
+              <Text className="text-sm text-text-secondary mb-4">
                 {formatDate(entry.entry_date || entry.created_at)}
               </Text>
 
               {/* Content Input */}
               <TextInput
                 multiline
-                className="bg-gray-50 rounded-xl p-4 text-base min-h-[150px] text-gray-800"
+                className="bg-input-bg rounded-xl p-4 text-base min-h-[150px] text-text-primary"
                 placeholder="What's on your mind?"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
                 value={editContent}
                 onChangeText={setEditContent}
                 textAlignVertical="top"
               />
 
               {/* Mood Emoji Picker */}
-              <Text className="text-sm font-semibold text-gray-700 mt-4 mb-2">
+              <Text className="text-sm font-semibold text-text-primary mt-4 mb-2">
                 How are you feeling?
               </Text>
               <ScrollView
@@ -478,8 +503,8 @@ export default function EntryDetailScreen() {
                       <View
                         className={`w-13 h-13 rounded-full items-center justify-center ${
                           editMoodEmoji === emoji
-                            ? 'bg-blue-100 border-2 border-blue-500'
-                            : 'bg-gray-100'
+                            ? 'bg-blue-100 dark:bg-blue-900/40 border-2 border-blue-500'
+                            : 'bg-surface-muted'
                         }`}
                         style={{ width: 52, height: 52 }}
                       >
@@ -491,7 +516,7 @@ export default function EntryDetailScreen() {
               </ScrollView>
 
               {/* Mood Score Picker */}
-              <Text className="text-sm font-semibold text-gray-700 mt-4 mb-2">
+              <Text className="text-sm font-semibold text-text-primary mt-4 mb-2">
                 Rate your day (1-100)
               </Text>
               <View className="flex-row" style={{ gap: 8 }}>
@@ -506,7 +531,7 @@ export default function EntryDetailScreen() {
                   >
                     <View
                       className={`py-3 rounded-xl items-center ${
-                        editMoodScore === score ? '' : 'bg-gray-100'
+                        editMoodScore === score ? '' : 'bg-surface-muted'
                       }`}
                       style={
                         editMoodScore === score
@@ -518,7 +543,7 @@ export default function EntryDetailScreen() {
                         className={`text-sm font-semibold ${
                           editMoodScore === score
                             ? 'text-white'
-                            : 'text-gray-600'
+                            : 'text-text-secondary'
                         }`}
                       >
                         {score}
@@ -529,7 +554,7 @@ export default function EntryDetailScreen() {
               </View>
 
               {/* Card Color Picker */}
-              <Text className="text-sm font-semibold text-gray-700 mt-4 mb-2">
+              <Text className="text-sm font-semibold text-text-primary mt-4 mb-2">
                 Card color
               </Text>
               <View className="flex-row" style={{ gap: 12 }}>
@@ -545,7 +570,7 @@ export default function EntryDetailScreen() {
                       className={`w-10 h-10 rounded-full ${
                         editCardColor === color
                           ? 'border-[3px] border-blue-500'
-                          : 'border-2 border-gray-200'
+                          : 'border-2 border-border-strong'
                       }`}
                       style={{ backgroundColor: color }}
                     />
@@ -556,8 +581,8 @@ export default function EntryDetailScreen() {
               {/* Action Buttons */}
               <View className="flex-row mt-6" style={{ gap: 12 }}>
                 <Pressable className="flex-1" onPress={handleCancelEdit}>
-                  <View className="bg-gray-100 rounded-xl py-4 items-center">
-                    <Text className="text-base font-semibold text-gray-600">
+                  <View className="bg-surface-muted rounded-xl py-4 items-center">
+                    <Text className="text-base font-semibold text-text-secondary">
                       Cancel
                     </Text>
                   </View>
@@ -578,10 +603,10 @@ export default function EntryDetailScreen() {
         {(saving || deleting) && (
           <View
             className="absolute inset-0 items-center justify-center"
-            style={{ backgroundColor: 'rgba(255,255,255,0.9)' }}
+            style={{ backgroundColor: isDark ? 'rgba(15,23,42,0.9)' : 'rgba(255,255,255,0.9)' }}
           >
             <ActivityIndicator size="large" color="#2563EB" />
-            <Text className="text-gray-600 mt-3 font-medium">
+            <Text className="text-text-secondary mt-3 font-medium">
               {saving ? 'Saving...' : 'Deleting...'}
             </Text>
           </View>

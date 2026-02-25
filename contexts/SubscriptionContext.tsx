@@ -93,9 +93,11 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   useEffect(() => {
-    initializePurchases();
-    checkSubscription();
-    refreshOfferings();
+    (async () => {
+      await initializePurchases();
+      await checkSubscription();
+      await refreshOfferings();
+    })();
   }, []);
 
   return (

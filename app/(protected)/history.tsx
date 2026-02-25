@@ -12,8 +12,10 @@ import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { getGuestEntries } from '../../lib/guest';
 import { hapticLight, hapticSelection } from '../../lib/haptics';
+import { cacheSet, cacheGet } from '../../lib/cache';
 import { MOOD_OPTIONS } from '../../types/journal';
 import type { JournalEntry, GuestEntry } from '../../types/journal';
 
@@ -64,6 +66,7 @@ function getMoodColor(score: number): string {
 
 export default function HistoryScreen() {
   const { isGuest } = useAuth();
+  const { isDark } = useTheme();
 
   const [entries, setEntries] = useState<DisplayEntry[]>([]);
   const [filteredEntries, setFilteredEntries] = useState<DisplayEntry[] | null>(
@@ -76,11 +79,13 @@ export default function HistoryScreen() {
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [isStale, setIsStale] = useState(false);
   const [moodFilter, setMoodFilter] = useState<string | null>(null);
 
   const fetchEntries = async (resetOffset: boolean = false) => {
     try {
       setError(null);
+      setIsStale(false);
       if (isGuest) {
         const guestEntries = await getGuestEntries();
         const sortedEntries: DisplayEntry[] = guestEntries
@@ -122,6 +127,8 @@ export default function HistoryScreen() {
         if (resetOffset) {
           setEntries(newEntries);
           setOffset(PAGE_SIZE);
+          // Cache first page for offline use
+          cacheSet('history_entries', { entries: newEntries, total: data.total || 0 });
         } else {
           setEntries((prev) => [...prev, ...newEntries]);
           setOffset((prev) => prev + PAGE_SIZE);
@@ -132,6 +139,17 @@ export default function HistoryScreen() {
       }
     } catch (err) {
       console.error('Failed to fetch entries:', err);
+      // Offline fallback: try cache
+      if (!isGuest && resetOffset) {
+        const cached = await cacheGet<{ entries: DisplayEntry[]; total: number }>('history_entries');
+        if (cached) {
+          setEntries(cached.data.entries);
+          setTotal(cached.data.total);
+          setHasMore(false);
+          setIsStale(true);
+          return;
+        }
+      }
       setError(
         'Failed to load your journal entries. Please check your connection and try again.'
       );
@@ -196,11 +214,11 @@ export default function HistoryScreen() {
 
   const renderEntryCard = ({ item }: { item: DisplayEntry }) => (
     <Pressable
-      className="bg-white rounded-xl mx-5 mb-2.5 border border-gray-100 active:scale-[0.98]"
+      className="bg-surface-elevated rounded-xl mx-5 mb-2.5 border border-border active:scale-[0.98]"
       style={{
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.03,
+        shadowOpacity: isDark ? 0.15 : 0.03,
         shadowRadius: 3,
         elevation: 1,
       }}
@@ -220,13 +238,13 @@ export default function HistoryScreen() {
             <Text className="text-xl mr-2">
               {item.mood_emoji || '\u{1F4DD}'}
             </Text>
-            <Text className="text-sm text-gray-500 flex-1">
+            <Text className="text-sm text-text-secondary flex-1">
               {formatDate(item.entry_date || item.created_at)}
             </Text>
 
             {isGuest && (
-              <View className="bg-amber-50 rounded-full px-2 py-0.5 mr-2 border border-amber-200">
-                <Text className="text-[10px] font-medium text-amber-700">
+              <View className="bg-amber-50 dark:bg-amber-900/30 rounded-full px-2 py-0.5 mr-2 border border-amber-200 dark:border-amber-700">
+                <Text className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
                   Local
                 </Text>
               </View>
@@ -251,7 +269,7 @@ export default function HistoryScreen() {
           {item.content ? (
             <Text
               numberOfLines={2}
-              className="text-sm text-gray-600 leading-5"
+              className="text-sm text-text-secondary leading-5"
             >
               {item.content}
             </Text>
@@ -259,10 +277,10 @@ export default function HistoryScreen() {
 
           {/* Bottom Row */}
           <View className="flex-row items-center justify-between mt-2">
-            <Text className="text-xs text-gray-400">
+            <Text className="text-xs text-text-muted">
               {timeAgo(item.created_at)}
             </Text>
-            <Ionicons name="chevron-forward" size={14} color="#D1D5DB" />
+            <Ionicons name="chevron-forward" size={14} color={isDark ? '#475569' : '#D1D5DB'} />
           </View>
         </View>
       </View>
@@ -272,23 +290,23 @@ export default function HistoryScreen() {
   const renderEmptyState = () => (
     <View className="flex-1 justify-center items-center px-10 py-20">
       <Text className="text-5xl mb-4">{'\u{1F4D3}'}</Text>
-      <Text className="text-lg font-semibold text-gray-800 mb-2">
+      <Text className="text-lg font-semibold text-text-primary mb-2">
         {moodFilter ? 'No matching entries' : 'No entries yet'}
       </Text>
-      <Text className="text-sm text-gray-500 text-center mb-6">
+      <Text className="text-sm text-text-secondary text-center mb-6">
         {moodFilter
           ? 'No entries match this mood filter. Try another mood or clear the filter.'
           : 'Start journaling to see your entries here'}
       </Text>
       {moodFilter ? (
         <Pressable
-          className="bg-gray-100 rounded-xl px-5 py-3"
+          className="bg-surface-muted rounded-xl px-5 py-3"
           onPress={() => {
             setMoodFilter(null);
             setFilteredEntries(null);
           }}
         >
-          <Text className="text-sm font-semibold text-gray-600">
+          <Text className="text-sm font-semibold text-text-secondary">
             Clear Filter
           </Text>
         </Pressable>
@@ -310,13 +328,13 @@ export default function HistoryScreen() {
 
   const renderErrorState = () => (
     <View className="flex-1 justify-center items-center px-10">
-      <View className="bg-red-50 rounded-full p-4 mb-4">
+      <View className="bg-red-50 dark:bg-red-900/30 rounded-full p-4 mb-4">
         <Ionicons name="cloud-offline" size={40} color="#DC2626" />
       </View>
-      <Text className="text-lg font-semibold text-gray-800 mb-2">
+      <Text className="text-lg font-semibold text-text-primary mb-2">
         Something went wrong
       </Text>
-      <Text className="text-sm text-gray-500 text-center mb-6">
+      <Text className="text-sm text-text-secondary text-center mb-6">
         {error}
       </Text>
       <Pressable
@@ -339,7 +357,7 @@ export default function HistoryScreen() {
       {[1, 2, 3].map((i) => (
         <View
           key={i}
-          className="bg-gray-100 rounded-xl h-24 mx-5 mb-2.5"
+          className="bg-surface-muted rounded-xl h-24 mx-5 mb-2.5"
           style={{ opacity: 0.6 }}
         />
       ))}
@@ -357,7 +375,7 @@ export default function HistoryScreen() {
 
     if (!hasMore && displayEntries.length > 0 && !moodFilter) {
       return (
-        <Text className="text-xs text-gray-400 text-center py-4">
+        <Text className="text-xs text-text-muted text-center py-4">
           You've seen all entries
         </Text>
       );
@@ -370,13 +388,13 @@ export default function HistoryScreen() {
   const uniqueMoods = Array.from(new Set(entries.map((e) => e.mood_emoji)));
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
       {/* Header */}
-      <View className="px-5 pt-6 pb-3 bg-white border-b border-gray-100">
+      <View className="px-5 pt-6 pb-3 bg-background border-b border-border">
         <View className="flex-row items-center">
-          <Text className="text-2xl font-bold text-gray-900">History</Text>
-          <View className="bg-blue-50 rounded-full px-2.5 py-0.5 ml-3 border border-blue-100">
-            <Text className="text-xs font-bold text-blue-600">
+          <Text className="text-2xl font-bold text-text-primary">History</Text>
+          <View className="bg-blue-50 dark:bg-blue-900/30 rounded-full px-2.5 py-0.5 ml-3 border border-blue-100 dark:border-blue-800">
+            <Text className="text-xs font-bold text-blue-600 dark:text-blue-400">
               {moodFilter ? displayEntries.length : total}
             </Text>
           </View>
@@ -393,8 +411,8 @@ export default function HistoryScreen() {
                   onPress={() => handleMoodFilter(emoji)}
                   className={`w-9 h-9 rounded-full items-center justify-center ${
                     isActive
-                      ? 'bg-blue-100 border-2 border-blue-400'
-                      : 'bg-gray-100'
+                      ? 'bg-blue-100 dark:bg-blue-900/50 border-2 border-blue-400'
+                      : 'bg-surface-muted'
                   }`}
                 >
                   <Text className="text-lg">{emoji}</Text>
@@ -408,9 +426,9 @@ export default function HistoryScreen() {
                   setMoodFilter(null);
                   setFilteredEntries(null);
                 }}
-                className="h-9 rounded-full px-3 bg-gray-200 items-center justify-center"
+                className="h-9 rounded-full px-3 bg-surface-muted items-center justify-center"
               >
-                <Text className="text-xs font-medium text-gray-600">
+                <Text className="text-xs font-medium text-text-secondary">
                   Clear
                 </Text>
               </Pressable>
@@ -421,15 +439,15 @@ export default function HistoryScreen() {
 
       {/* Guest Banner */}
       {isGuest && entries.length > 0 && (
-        <View className="bg-amber-50 px-5 py-2.5 flex-row items-center justify-between border-b border-amber-100">
+        <View className="bg-amber-50 dark:bg-amber-900/20 px-5 py-2.5 flex-row items-center justify-between border-b border-amber-100 dark:border-amber-800">
           <View className="flex-row items-center flex-1">
             <Ionicons
               name="cloud-offline"
               size={16}
-              color="#D97706"
+              color={isDark ? '#FBBF24' : '#D97706'}
               style={{ marginRight: 6 }}
             />
-            <Text className="text-xs text-amber-700">
+            <Text className="text-xs text-amber-700 dark:text-amber-400">
               Sign up to sync entries to cloud
             </Text>
           </View>
@@ -442,6 +460,16 @@ export default function HistoryScreen() {
           >
             <Text className="text-xs font-medium text-white">Sign Up</Text>
           </Pressable>
+        </View>
+      )}
+
+      {/* Offline indicator */}
+      {isStale && (
+        <View className="bg-amber-50 dark:bg-amber-900/20 px-5 py-2.5 flex-row items-center border-b border-amber-100 dark:border-amber-800">
+          <Ionicons name="cloud-offline-outline" size={14} color="#D97706" />
+          <Text className="text-xs text-amber-700 dark:text-amber-400 ml-2">
+            Showing cached data — pull to refresh
+          </Text>
         </View>
       )}
 
