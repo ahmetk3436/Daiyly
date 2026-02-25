@@ -3,7 +3,7 @@
 All user flows with Mermaid diagrams, API endpoints, request/response shapes, guest vs authenticated differences, offline behavior, and library internals.
 
 **Screens**: 17 files total (including 2 layout files)
-**Last updated**: 2026-02-25 (5 production features + 3 risk hardening + 3 logic gap fixes)
+**Last updated**: 2026-02-25 (5 production features + 3 risk hardening + 3 logic gap + 3 audit trap fixes)
 
 ---
 
@@ -952,10 +952,9 @@ sequenceDiagram
         Srch->>API: GET /api/p/journals/search?q=query&limit=20&offset=0
         API-->>Srch: {entries: JournalEntry[], total, hasMore}
     else Authenticated + Network Error
-        Srch->>Cache: cacheGet('history_entries') + cacheGet('home_entries')
-        Cache-->>Srch: Merged + deduplicated cached entries (up to 25)
-        Srch->>Srch: Local filter: content.includes(query)
-        Note over Srch: Fallback to searching all cached data
+        Note over Srch: Uses pre-loaded offlineCacheRef (no I/O on catch path)
+        Srch->>Srch: Filter offlineCacheRef by content.includes(query)
+        Note over Srch: Cache pre-loaded on mount via InteractionManager (off main thread)
     else Guest
         Srch->>AS: guestEntries already loaded on mount
         Srch->>Srch: Filter by content.toLowerCase().includes(query)
@@ -1267,9 +1266,10 @@ Stored in `@daiyly_notification_prefs`. Toggle switches update immediately + per
 
 The notification preference toggles are synced with the OS-level notification permission:
 
-1. **On toggle ON**: Checks `Notifications.getPermissionsAsync()`. If not granted, calls `requestPermissionsAsync()`. If still denied, shows alert with "Open Settings" button to direct user to iOS Settings. Toggle stays OFF.
+1. **On toggle ON**: Checks `Notifications.getPermissionsAsync()`. If not granted, calls `requestPermissionsAsync()` (triggers Android 13+ POST_NOTIFICATIONS runtime prompt). If still denied, shows platform-aware alert: Android gets specific instructions ("Settings > Apps > Daiyly > Notifications"), iOS gets generic "Open Settings". Toggle stays OFF.
 2. **On app resume**: `AppState` listener re-checks OS permission status. If user revoked permission in Settings while app was backgrounded, shows red warning banner.
-3. **Warning banner**: When OS permission is denied but local toggle preferences have any enabled, a red banner appears: "Notifications are disabled at the system level" with "Open Settings" link.
+3. **On screen focus**: `useFocusEffect` from expo-router re-checks permission every time the Notification Center screen is focused. More reliable than AppState on Android where aggressive background kill may prevent the 'active' event from firing.
+4. **Warning banner**: When OS permission is denied but local toggle preferences have any enabled, a red banner appears: "Notifications Blocked by System" with "Open Settings" link.
 
 ```mermaid
 sequenceDiagram
@@ -1910,15 +1910,16 @@ The warning is a 3-button Alert with "Manage Subscription" (opens store), "Conti
 
 **After:** Merges `history_entries` cache (20 entries) + `home_entries` cache (5 entries), deduplicates by ID, searches up to 25 entries locally.
 
-### Entry Date Timezone (Design Decision)
+### Entry Date Timezone (Fixed)
 
-**Concern:** Late-night entries (e.g., 11:30 PM PST) get assigned to the next UTC day.
+**Problem:** Late-night entries (e.g., 11:30 PM PST) were assigned to the next UTC day because backend used `time.Now().UTC()` and ignored client's `entry_date`.
 
-**Reality:** Backend sets `entry_date = time.Now().UTC()` server-side (`services.go:106`). The frontend sends `entry_date` in the POST body, but the backend's `CreateJournalRequest` struct doesn't include it — it's silently dropped. This is a deliberate backend design decision: server-authoritative timestamps prevent clock manipulation.
+**Fix (Backend):** `CreateJournalRequest` now includes `EntryDate string` field. Backend parses `YYYY-MM-DD` from client:
+- If valid and within sanity window (past 7 days to 1 day in future): uses client date
+- If missing, invalid, or outside window: falls back to `time.Now().UTC()`
+- Frontend already sends `entry_date: new Date().toISOString().split('T')[0]` (local calendar date)
 
-**Impact:** A user journaling at 11:30 PM PST on Feb 24 gets `entry_date = 2026-02-25T07:30:00Z`. The frontend displays dates using `entry_date || created_at`, which are both UTC. For calendar/history views this means the entry appears on Feb 25 — potentially confusing for the user but consistent and tamper-proof.
-
-**No fix applied.** Accepting client timezone would require a backend schema change (`timezone` column or `client_local_date` field) which is out of scope. This is documented as a known trade-off.
+**Sanity guard:** Rejects dates >7 days in the past or >1 day in the future to prevent clock manipulation while still allowing timezone differences (UTC+14 to UTC-12 = 26-hour spread).
 
 ### Dead Fields
 

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TextInput,
   Keyboard,
+  InteractionManager,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,10 +35,36 @@ export default function SearchScreen() {
   const [isOfflineResults, setIsOfflineResults] = useState(false);
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const offlineCacheRef = useRef<{ id: string; content: string; mood_emoji: string; mood_score: number; created_at: string; card_color: string }[]>([]);
   const { user, isGuest } = useAuth();
   const { isSubscribed } = useSubscription();
   const { isDark } = useTheme();
   const showSearchUpsell = !isGuest && !isSubscribed;
+
+  // Pre-load offline cache on mount (off main thread) so catch block doesn't do I/O per search
+  useEffect(() => {
+    if (isGuest) return; // Guest uses guestEntries, not cache
+    InteractionManager.runAfterInteractions(async () => {
+      try {
+        type CachedEntry = { id: string; content: string; mood_emoji: string; mood_score: number; created_at: string; card_color: string };
+        const [homeCached, historyCached] = await Promise.all([
+          cacheGet<CachedEntry[]>('home_entries'),
+          cacheGet<{ entries: CachedEntry[]; total: number }>('history_entries'),
+        ]);
+        const seen = new Set<string>();
+        const merged: CachedEntry[] = [];
+        for (const entry of [...(historyCached?.data?.entries || []), ...(homeCached?.data || [])]) {
+          if (entry?.id && !seen.has(entry.id)) {
+            seen.add(entry.id);
+            merged.push(entry);
+          }
+        }
+        offlineCacheRef.current = merged;
+      } catch {
+        offlineCacheRef.current = [];
+      }
+    });
+  }, [isGuest]);
 
   useEffect(() => {
     if (isGuest) loadGuestEntries();
@@ -163,20 +190,8 @@ export default function SearchScreen() {
       setIsOfflineResults(false);
       hapticLight();
     } catch {
-      // Offline fallback: search cached entries locally (home + history)
-      type CachedEntry = { id: string; content: string; mood_emoji: string; mood_score: number; created_at: string; card_color: string };
-      const homeCached = await cacheGet<CachedEntry[]>('home_entries');
-      const historyCached = await cacheGet<{ entries: CachedEntry[]; total: number }>('history_entries');
-
-      // Merge both caches, deduplicate by id
-      const seen = new Set<string>();
-      const allCached: CachedEntry[] = [];
-      for (const entry of [...(historyCached?.data?.entries || []), ...(homeCached?.data || [])]) {
-        if (entry?.id && !seen.has(entry.id)) {
-          seen.add(entry.id);
-          allCached.push(entry);
-        }
-      }
+      // Offline fallback: search pre-loaded cached entries (no I/O on main thread)
+      const allCached = offlineCacheRef.current;
 
       if (allCached.length > 0) {
         const terms = searchQuery.toLowerCase().trim();

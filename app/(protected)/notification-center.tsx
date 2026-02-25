@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, Switch, ActivityIndicator, Alert, Linking, AppState } from 'react-native';
+import { View, Text, ScrollView, Pressable, Switch, ActivityIndicator, Alert, Linking, AppState, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
@@ -78,6 +78,14 @@ export default function NotificationCenterScreen() {
     return () => sub.remove();
   }, [checkOsPermission]);
 
+  // Also re-check when screen is focused (more reliable on Android where AppState
+  // 'active' event may not fire after aggressive background kill)
+  useFocusEffect(
+    useCallback(() => {
+      checkOsPermission();
+    }, [checkOsPermission])
+  );
+
   // Load persisted notification preferences
   useEffect(() => {
     const loadPrefs = async () => {
@@ -107,13 +115,16 @@ export default function NotificationCenterScreen() {
     if (value) {
       const { status } = await Notifications.getPermissionsAsync();
       if (status !== 'granted') {
-        // Try requesting permission
+        // Try requesting permission (Android 13+ shows runtime prompt for POST_NOTIFICATIONS)
         const { status: newStatus } = await Notifications.requestPermissionsAsync();
         if (newStatus !== 'granted') {
           hapticError();
+          const isAndroid = Platform.OS === 'android';
           Alert.alert(
             'Notifications Disabled',
-            'Please enable notifications in your device settings to receive reminders.',
+            isAndroid
+              ? 'Notification permission was denied. On Android 13+, you need to allow notifications in Settings > Apps > Daiyly > Notifications.'
+              : 'Please enable notifications in your device settings to receive reminders.',
             [
               { text: 'Cancel', style: 'cancel' },
               { text: 'Open Settings', onPress: () => Linking.openSettings() },
