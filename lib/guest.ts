@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from './api';
 import type { GuestEntry } from '../types/journal';
 
 export const GUEST_USES_KEY = 'guest_uses_count';
@@ -45,4 +46,41 @@ export async function getGuestEntries(): Promise<GuestEntry[]> {
 
 export async function clearGuestData(): Promise<void> {
   await AsyncStorage.multiRemove([GUEST_USES_KEY, GUEST_ENTRIES_KEY]);
+}
+
+/**
+ * Migrate guest entries to the authenticated user's account via API.
+ * Only removes successfully migrated entries — failures stay for retry.
+ * Returns the number of entries successfully migrated.
+ */
+export async function migrateGuestEntries(): Promise<number> {
+  const guestEntries = await getGuestEntries();
+  if (guestEntries.length === 0) return 0;
+
+  const migratedIds = new Set<string>();
+  for (const entry of guestEntries) {
+    try {
+      await api.post('/journals', {
+        mood_emoji: entry.mood_emoji,
+        mood_score: entry.mood_score,
+        content: entry.content,
+        card_color: entry.card_color,
+        tags: entry.tags || [],
+      });
+      migratedIds.add(entry.id);
+    } catch {
+      // Keep failed entries for retry on next trigger
+    }
+  }
+
+  if (migratedIds.size === guestEntries.length) {
+    // All entries migrated — full cleanup
+    await clearGuestData();
+  } else if (migratedIds.size > 0) {
+    // Partial success — remove only migrated entries, keep failures
+    const remaining = guestEntries.filter((e) => !migratedIds.has(e.id));
+    await AsyncStorage.setItem(GUEST_ENTRIES_KEY, JSON.stringify(remaining));
+  }
+
+  return migratedIds.size;
 }
