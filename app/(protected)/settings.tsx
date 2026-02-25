@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useTheme, type ThemeMode } from '../../contexts/ThemeContext';
@@ -92,7 +93,41 @@ export default function SettingsScreen() {
     }
   };
 
+  // Apple users: re-authenticate with Apple to get fresh authorizationCode for token revocation
+  const handleAppleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [AppleAuthentication.AppleAuthenticationScope.EMAIL],
+      });
+      if (!credential.authorizationCode) {
+        throw new Error('No authorization code received from Apple');
+      }
+      await deleteAccount(undefined, credential.authorizationCode);
+    } catch (err: any) {
+      if (err.code === 'ERR_REQUEST_CANCELED') {
+        // User cancelled Apple re-auth — do nothing
+      } else {
+        Alert.alert(
+          'Error',
+          err.response?.data?.message || err.message || 'Failed to delete account'
+        );
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const showDeletePasswordModal = () => setShowDeleteModal(true);
+
+  // Apple users skip password modal — re-auth with Apple instead
+  const proceedWithDeletion = () => {
+    if (user?.is_apple_user) {
+      handleAppleDeleteAccount();
+    } else {
+      showDeletePasswordModal();
+    }
+  };
 
   const confirmDelete = () => {
     hapticWarning();
@@ -121,13 +156,13 @@ export default function SettingsScreen() {
                   {
                     text: 'Continue Deletion',
                     style: 'destructive',
-                    onPress: showDeletePasswordModal,
+                    onPress: proceedWithDeletion,
                   },
                   { text: 'Cancel', style: 'cancel' },
                 ]
               );
             } else {
-              showDeletePasswordModal();
+              proceedWithDeletion();
             }
           },
         },

@@ -1,6 +1,7 @@
 export interface User {
   id: string;
   email: string;
+  is_apple_user?: boolean;
 }
 
 export interface AuthResponse {

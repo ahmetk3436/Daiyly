@@ -3,7 +3,7 @@
 All user flows with Mermaid diagrams, API endpoints, request/response shapes, guest vs authenticated differences, offline behavior, and library internals.
 
 **Screens**: 17 files total (including 2 layout files)
-**Last updated**: 2026-02-25 (5 production features + 3 risk hardening fixes)
+**Last updated**: 2026-02-25 (5 production features + 3 risk hardening + 3 logic gap fixes)
 
 ---
 
@@ -38,6 +38,8 @@ All user flows with Mermaid diagrams, API endpoints, request/response shapes, gu
 - [Store Review Prompts](#store-review-prompts)
 - [Legal Compliance (Auth Screens)](#legal-compliance-auth-screens)
 - [Subscription Cancel Warning](#subscription-cancel-warning)
+- [Apple Token Revocation](#apple-token-revocation-on-account-delete)
+- [Notification OS Permission Sync](#os-permission-sync)
 
 ---
 
@@ -1163,7 +1165,15 @@ graph TD
     H --> H2["Terms: vexellabspro.com/daiyly/terms"]
     H --> H3["Version: 1.0.0"]
 
-    I -->|"Delete Account" auth only| I1["Confirm alert → password modal → AuthContext.deleteAccount(password)"]
+    I -->|"Delete Account" auth only| I1{isSubscribed?}
+    I1 -->|Yes| I2["Subscription warning alert"]
+    I2 -->|"Manage Subscription"| I3["Open App Store/Play Store subscription management"]
+    I2 -->|"Continue Deletion"| I4{is_apple_user?}
+    I1 -->|No| I4
+    I4 -->|Yes| I5["Apple re-auth → signInAsync() → get authorizationCode"]
+    I5 --> I6["deleteAccount(undefined, authorizationCode)"]
+    I6 --> I7["Backend revokes Apple token via apple_revoke.go"]
+    I4 -->|No| I8["Password modal → deleteAccount(password)"]
 ```
 
 ### Export Data Flow (authenticated + subscribed)
@@ -1252,6 +1262,39 @@ sequenceDiagram
 ```
 
 Stored in `@daiyly_notification_prefs`. Toggle switches update immediately + persist.
+
+### OS Permission Sync
+
+The notification preference toggles are synced with the OS-level notification permission:
+
+1. **On toggle ON**: Checks `Notifications.getPermissionsAsync()`. If not granted, calls `requestPermissionsAsync()`. If still denied, shows alert with "Open Settings" button to direct user to iOS Settings. Toggle stays OFF.
+2. **On app resume**: `AppState` listener re-checks OS permission status. If user revoked permission in Settings while app was backgrounded, shows red warning banner.
+3. **Warning banner**: When OS permission is denied but local toggle preferences have any enabled, a red banner appears: "Notifications are disabled at the system level" with "Open Settings" link.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant NC as notification-center.tsx
+    participant OS as Notifications API
+    participant Settings as iOS Settings
+
+    User->>NC: Toggle switch ON
+    NC->>OS: getPermissionsAsync()
+    alt Already granted
+        NC->>NC: Update preference in AsyncStorage
+    else Not granted
+        NC->>OS: requestPermissionsAsync()
+        alt User grants
+            NC->>NC: Update preference in AsyncStorage
+        else User denies
+            NC->>NC: Show alert with "Open Settings" button
+            User->>Settings: Opens iOS Settings
+            Note over User,Settings: User toggles notification permission
+            User->>NC: Returns to app (AppState 'active')
+            NC->>OS: getPermissionsAsync() (re-check)
+        end
+    end
+```
 
 ---
 
@@ -1810,13 +1853,18 @@ graph TD
     A[Tap Delete Account] --> B[Alert: Are you sure? Permanent.]
     B -->|Cancel| Z[Abort]
     B -->|Delete| C{isSubscribed?}
-    C -->|No| D[Show password modal]
+    C -->|No| J{is_apple_user?}
     C -->|Yes| E[Alert: Active Subscription warning]
     E -->|Manage Subscription| F[Opens iOS/Android subscription settings]
-    E -->|Continue Deletion| D
+    E -->|Continue Deletion| J
     E -->|Cancel| Z
+    J -->|Yes| K[Apple re-auth via signInAsync]
+    K -->|User cancels| Z
+    K -->|Success| L[deleteAccount undefined, authorizationCode]
+    L --> M[Backend revokes Apple token + deletes account]
+    J -->|No| D[Show password modal]
     D --> G[Enter password]
-    G --> H[deleteAccount API call]
+    G --> H[deleteAccount password]
 ```
 
 ### Subscription management URLs
@@ -1826,7 +1874,19 @@ graph TD
 | iOS | `https://apps.apple.com/account/subscriptions` |
 | Android | `https://play.google.com/store/account/subscriptions` |
 
-The warning is a 3-button Alert with "Manage Subscription" (opens store), "Continue Deletion" (destructive, proceeds to password modal), and "Cancel".
+The warning is a 3-button Alert with "Manage Subscription" (opens store), "Continue Deletion" (destructive), and "Cancel".
+
+### Apple Token Revocation on Account Delete
+
+**Apple Guideline**: When a user deletes their account, the app must revoke their Apple Sign-In token so Apple stops associating the account.
+
+**Implementation**:
+- `AuthContext.deleteAccount(password?, authorizationCode?)` sends `authorization_code` in DELETE request body
+- Backend's `apple_revoke.go` revokes the token with Apple's servers (fire-and-forget goroutine)
+- For Apple users: settings.tsx calls `AppleAuthentication.signInAsync()` to get a fresh `authorizationCode` (Apple requires re-auth)
+- For email users: standard password modal flow, no Apple revocation needed
+- `User.is_apple_user` is set from JWT claims (`payload.is_apple_user`) and from API responses (`data.user.is_apple_user`)
+- Backend JWT includes `is_apple_user: true/false` based on `user.AuthProvider == "apple"`
 
 ---
 
@@ -1849,6 +1909,16 @@ The warning is a 3-button Alert with "Manage Subscription" (opens store), "Conti
 **Before:** Offline search fallback only searched `home_entries` cache (5 entries).
 
 **After:** Merges `history_entries` cache (20 entries) + `home_entries` cache (5 entries), deduplicates by ID, searches up to 25 entries locally.
+
+### Entry Date Timezone (Design Decision)
+
+**Concern:** Late-night entries (e.g., 11:30 PM PST) get assigned to the next UTC day.
+
+**Reality:** Backend sets `entry_date = time.Now().UTC()` server-side (`services.go:106`). The frontend sends `entry_date` in the POST body, but the backend's `CreateJournalRequest` struct doesn't include it — it's silently dropped. This is a deliberate backend design decision: server-authoritative timestamps prevent clock manipulation.
+
+**Impact:** A user journaling at 11:30 PM PST on Feb 24 gets `entry_date = 2026-02-25T07:30:00Z`. The frontend displays dates using `entry_date || created_at`, which are both UTC. For calendar/history views this means the entry appears on Feb 25 — potentially confusing for the user but consistent and tamper-proof.
+
+**No fix applied.** Accepting client timezone would require a backend schema change (`timezone` column or `client_local_date` field) which is out of scope. This is documented as a known trade-off.
 
 ### Dead Fields
 

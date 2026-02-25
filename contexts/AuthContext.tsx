@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useCallback,
 } from 'react';
-import api, { authApi } from '../lib/api';
+import api, { authApi, onAuthExpired } from '../lib/api';
 import {
   setTokens,
   clearTokens,
@@ -13,6 +13,7 @@ import {
   getRefreshToken,
 } from '../lib/storage';
 import { hapticSuccess, hapticError } from '../lib/haptics';
+import { migrateGuestEntries } from '../lib/guest';
 import type { User, AuthResponse } from '../types/auth';
 
 interface AuthContextType {
@@ -24,7 +25,7 @@ interface AuthContextType {
   register: (email: string, password: string) => Promise<void>;
   loginWithApple: (identityToken: string, authCode: string, fullName?: string, email?: string) => Promise<void>;
   logout: () => Promise<void>;
-  deleteAccount: (password?: string) => Promise<void>;
+  deleteAccount: (password?: string, authorizationCode?: string) => Promise<void>;
   enterGuestMode: () => void;
 }
 
@@ -41,17 +42,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsGuest(true);
   }, []);
 
-  // Restore session on mount
+  // Restore session on mount — local JWT decode + exp check (no network needed)
   useEffect(() => {
     const restore = async () => {
       try {
         const token = await getAccessToken();
         if (token) {
-          const { data } = await authApi.get('/health');
-          if (data.status === 'ok') {
+          try {
             const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-            const payload = JSON.parse(decodeURIComponent(escape(globalThis.atob?.(base64) ?? Buffer.from(base64, 'base64').toString('utf-8'))));
-            setUser({ id: payload.sub, email: payload.email });
+            const decoded = globalThis.atob?.(base64) ?? Buffer.from(base64, 'base64').toString('utf-8');
+            const payload = JSON.parse(decodeURIComponent(escape(decoded)));
+            if (payload.exp && payload.exp * 1000 > Date.now()) {
+              setUser({ id: payload.sub, email: payload.email, is_apple_user: payload.is_apple_user === true });
+            } else {
+              await clearTokens();
+            }
+          } catch {
+            await clearTokens();
           }
         }
       } catch {
@@ -63,6 +70,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     restore();
   }, []);
 
+  // Auto-logout when refresh token expires (prevents stuck "logged in" state)
+  useEffect(() => {
+    const unsubscribe = onAuthExpired(() => {
+      clearTokens().then(() => {
+        setUser(null);
+        setIsGuest(false);
+      });
+    });
+    return unsubscribe;
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     try {
       const { data } = await authApi.post<AuthResponse>('/auth/login', {
@@ -70,7 +88,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
       });
       await setTokens(data.access_token, data.refresh_token);
-      setUser(data.user);
+      setUser({ id: data.user.id, email: data.user.email, is_apple_user: data.user.is_apple_user });
+      setIsGuest(false);
+      // Migrate guest entries to authenticated account (fire-and-forget)
+      migrateGuestEntries().catch(() => {});
       hapticSuccess();
     } catch (err) {
       hapticError();
@@ -85,7 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
       });
       await setTokens(data.access_token, data.refresh_token);
-      setUser(data.user);
+      setUser({ id: data.user.id, email: data.user.email, is_apple_user: data.user.is_apple_user });
+      setIsGuest(false);
+      migrateGuestEntries().catch(() => {});
       hapticSuccess();
     } catch (err) {
       hapticError();
@@ -104,7 +127,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email,
         });
         await setTokens(data.access_token, data.refresh_token);
-        setUser(data.user);
+        setUser({ id: data.user.id, email: data.user.email, is_apple_user: true });
+        setIsGuest(false);
+        migrateGuestEntries().catch(() => {});
         hapticSuccess();
       } catch (err) {
         hapticError();
@@ -130,11 +155,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Account deletion (Guideline 5.1.1)
+  // For Apple users: pass authorizationCode for token revocation (Apple requirement)
   const deleteAccount = useCallback(
-    async (password?: string) => {
-      await authApi.delete('/auth/account', {
-        data: { password: password || '' },
-      });
+    async (password?: string, authorizationCode?: string) => {
+      const payload: { password: string; authorization_code?: string } = {
+        password: password || '',
+      };
+      if (authorizationCode) {
+        payload.authorization_code = authorizationCode;
+      }
+      await authApi.delete('/auth/account', { data: payload });
       await clearTokens();
       setUser(null);
       hapticSuccess();
