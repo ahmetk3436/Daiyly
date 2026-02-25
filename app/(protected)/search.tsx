@@ -31,6 +31,7 @@ export default function SearchScreen() {
   const [guestEntries, setGuestEntries] = useState<any[]>([]);
   const [loadingGuestEntries, setLoadingGuestEntries] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isOfflineResults, setIsOfflineResults] = useState(false);
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { user, isGuest } = useAuth();
@@ -159,6 +160,7 @@ export default function SearchScreen() {
 
       setTotal(responseTotal || 0);
       setHasMore(responseHasMore ?? false);
+      setIsOfflineResults(false);
       hapticLight();
     } catch {
       // Offline fallback: search cached entries locally (home + history)
@@ -187,6 +189,7 @@ export default function SearchScreen() {
         }
         setTotal(localResults.length);
         setHasMore(false);
+        setIsOfflineResults(true);
         setError(localResults.length > 0
           ? null
           : 'No cached results found. Connect to search all entries.');
@@ -240,6 +243,7 @@ export default function SearchScreen() {
     setOffset(0);
     setHasMore(true);
     setError(null);
+    setIsOfflineResults(false);
     Keyboard.dismiss();
   }, []);
 
@@ -304,13 +308,26 @@ export default function SearchScreen() {
   );
 
   const renderFooter = useCallback(() => {
-    if (!isFetchingMore) return <View className="h-24" />;
-    return (
-      <View className="py-4">
-        <ActivityIndicator size="small" color="#2563EB" />
-      </View>
-    );
-  }, [isFetchingMore]);
+    if (isFetchingMore) {
+      return (
+        <View className="py-4">
+          <ActivityIndicator size="small" color="#2563EB" />
+        </View>
+      );
+    }
+    if (isOfflineResults) {
+      return (
+        <View className="mx-5 my-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl px-4 py-3 flex-row items-center border border-amber-100 dark:border-amber-800">
+          <Ionicons name="cloud-offline-outline" size={16} color="#D97706" />
+          <Text className="text-xs text-amber-700 dark:text-amber-400 ml-2 flex-1">
+            Searching recent cached entries only. Connect to the internet to
+            search all your journal entries.
+          </Text>
+        </View>
+      );
+    }
+    return <View className="h-24" />;
+  }, [isFetchingMore, isOfflineResults]);
 
   useEffect(() => {
     return () => {

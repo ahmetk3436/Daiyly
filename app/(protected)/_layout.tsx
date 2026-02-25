@@ -1,11 +1,16 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Pressable, Text, ActivityIndicator } from 'react-native';
 import { Slot, Redirect, router, usePathname } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { SubscriptionProvider } from '../../contexts/SubscriptionContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { hapticSelection } from '../../lib/haptics';
+import { authenticateWithBiometrics } from '../../lib/biometrics';
 
 const TABS = [
   {
@@ -46,13 +51,73 @@ const HIDDEN_TAB_ROUTES = [
   '/new-entry',
   '/paywall',
   '/notification-center',
+  '/sharing',
 ];
 
 export default function ProtectedLayout() {
   const { isAuthenticated, isLoading, isGuest } = useAuth();
+  const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState('/(protected)/home');
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [biometricChecked, setBiometricChecked] = useState(false);
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
+  const pendingDeepLink = useRef<string | null>(null);
+
+  // Capture initial deep link URL on cold start
+  useEffect(() => {
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        const parsed = Linking.parse(url);
+        if (parsed.path && parsed.path !== 'home' && parsed.path !== '') {
+          pendingDeepLink.current = `/(protected)/${parsed.path}`;
+        }
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Navigate to pending deep link after auth + biometric resolve
+  useEffect(() => {
+    if (!isLoading && biometricChecked && isUnlocked && (isAuthenticated || isGuest)) {
+      if (pendingDeepLink.current) {
+        const target = pendingDeepLink.current;
+        pendingDeepLink.current = null;
+        // Defer to next tick so Slot is mounted
+        setTimeout(() => router.replace(target as never), 0);
+      }
+    }
+  }, [isLoading, biometricChecked, isUnlocked, isAuthenticated, isGuest]);
+
+  // Check biometric lock on mount
+  useEffect(() => {
+    const checkBiometric = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('@daiyly_settings');
+        if (stored) {
+          const settings = JSON.parse(stored);
+          if (settings.biometricEnabled) {
+            const success = await authenticateWithBiometrics('Unlock Daiyly');
+            setIsUnlocked(success);
+            setBiometricChecked(true);
+            return;
+          }
+        }
+        // No biometric required
+        setIsUnlocked(true);
+        setBiometricChecked(true);
+      } catch {
+        // Corrupted settings — safe default: assume biometric was enabled, attempt auth
+        try {
+          const success = await authenticateWithBiometrics('Unlock Daiyly');
+          setIsUnlocked(success);
+        } catch {
+          setIsUnlocked(false);
+        }
+        setBiometricChecked(true);
+      }
+    };
+    checkBiometric();
+  }, []);
 
   // Sync active tab with current pathname
   useEffect(() => {
@@ -66,11 +131,11 @@ export default function ProtectedLayout() {
     pathname.includes(route)
   );
 
-  if (isLoading) {
+  if (isLoading || !biometricChecked) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
+      <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator size="large" color="#2563EB" />
-        <Text className="text-base text-gray-400 mt-4">Loading...</Text>
+        <Text className="text-base text-text-muted mt-4">Loading...</Text>
       </View>
     );
   }
@@ -79,20 +144,53 @@ export default function ProtectedLayout() {
     return <Redirect href="/(auth)/login" />;
   }
 
+  // Biometric lock screen
+  if (!isUnlocked) {
+    return (
+      <SafeAreaView className="flex-1 bg-background items-center justify-center">
+        <View className="items-center px-8">
+          <View className="w-20 h-20 rounded-full bg-blue-50 dark:bg-blue-900/30 items-center justify-center mb-6">
+            <Ionicons name="lock-closed" size={36} color="#2563EB" />
+          </View>
+          <Text className="text-xl font-bold text-text-primary mb-2">
+            Daiyly is Locked
+          </Text>
+          <Text className="text-sm text-text-secondary text-center mb-8">
+            Authenticate to access your journal
+          </Text>
+          <Pressable
+            className="bg-blue-600 rounded-2xl py-4 px-8 items-center active:bg-blue-700"
+            onPress={async () => {
+              const success = await authenticateWithBiometrics('Unlock Daiyly');
+              if (success) setIsUnlocked(true);
+            }}
+          >
+            <View className="flex-row items-center">
+              <Ionicons name="finger-print" size={20} color="#FFFFFF" />
+              <Text className="text-white font-semibold text-base ml-2">
+                Unlock
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SubscriptionProvider>
-      <View className="flex-1 bg-white">
+      <View className="flex-1 bg-background">
         <Slot />
 
         {/* Custom Tab Bar */}
         {!shouldHideTabs && (
           <View
-            className="flex-row bg-white border-t border-gray-100"
+            className="flex-row bg-background border-t border-border"
             style={{
               paddingBottom: insets.bottom || 16,
-              shadowColor: '#000',
+              shadowColor: isDark ? '#000' : '#000',
               shadowOffset: { width: 0, height: -2 },
-              shadowOpacity: 0.04,
+              shadowOpacity: isDark ? 0.2 : 0.04,
               shadowRadius: 8,
               elevation: 8,
             }}
@@ -112,13 +210,13 @@ export default function ProtectedLayout() {
                   <Ionicons
                     name={isActive ? tab.iconActive : tab.icon}
                     size={22}
-                    color={isActive ? '#2563EB' : '#9CA3AF'}
+                    color={isActive ? '#2563EB' : isDark ? '#64748B' : '#9CA3AF'}
                   />
                   <Text
                     className={`text-[10px] mt-0.5 ${
                       isActive
                         ? 'font-bold text-blue-600'
-                        : 'font-normal text-gray-400'
+                        : 'font-normal text-text-muted'
                     }`}
                   >
                     {tab.label}

@@ -11,7 +11,7 @@ import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { initLanguage } from '../lib/i18n';
 import { refreshApiBaseUrl, getRemoteMinVersion } from '../lib/api';
 import { compareVersions, getAppVersion, shouldCheckVersion, markVersionChecked } from '../lib/version';
-import ForceUpdateModal from '../components/ForceUpdateModal';
+import ForceUpdateModal, { wasRecentlyDismissed } from '../components/ForceUpdateModal';
 
 function ThemedApp() {
   const { isDark } = useTheme();
@@ -38,13 +38,16 @@ function RootLayout() {
       await refreshApiBaseUrl();
       initLanguage();
 
-      // Force update check
+      // Force update check (skips if user dismissed within last hour)
       const minVersion = getRemoteMinVersion();
       if (minVersion) {
         const needsCheck = await shouldCheckVersion();
         if (needsCheck) {
           const isOk = compareVersions(getAppVersion(), minVersion);
-          if (!isOk) setForceUpdate(true);
+          if (!isOk) {
+            const dismissed = await wasRecentlyDismissed();
+            if (!dismissed) setForceUpdate(true);
+          }
           await markVersionChecked();
         }
       }
@@ -60,7 +63,10 @@ function RootLayout() {
             <ThemedApp />
           </AuthProvider>
         </ThemeProvider>
-        <ForceUpdateModal visible={forceUpdate} />
+        <ForceUpdateModal
+          visible={forceUpdate}
+          onDismiss={() => setForceUpdate(false)}
+        />
       </SafeAreaProvider>
     </ErrorBoundary>
   );

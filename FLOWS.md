@@ -3,7 +3,7 @@
 All user flows with Mermaid diagrams, API endpoints, request/response shapes, guest vs authenticated differences, offline behavior, and library internals.
 
 **Screens**: 17 files total (including 2 layout files)
-**Last updated**: 2026-02-25 (5 production features: force update, deep linking, store review, legal links, subscription cancel warning)
+**Last updated**: 2026-02-25 (5 production features + 3 risk hardening fixes)
 
 ---
 
@@ -1004,7 +1004,7 @@ sequenceDiagram
 
 **Guest**: Loads all entries on mount, filters in-memory. Shows "(local)" label next to result count.
 
-**Offline fallback**: When API fails for authenticated users, merges `history_entries` (20 entries) + `home_entries` (5 entries), deduplicates by ID, and searches locally via `content.includes(query)`. If cached results found, shows them. If no cache, shows "Failed to search" error with retry button.
+**Offline fallback**: When API fails for authenticated users, merges `history_entries` (20 entries) + `home_entries` (5 entries), deduplicates by ID, and searches locally via `content.includes(query)`. If cached results found, shows them with an amber warning banner: "Searching recent cached entries only. Connect to the internet to search all your journal entries." If no cache, shows "Failed to search" error with retry button. The `isOfflineResults` state flag controls whether the warning banner renders in the FlatList footer.
 
 ### Search UI States
 
@@ -1015,6 +1015,7 @@ sequenceDiagram
 | Results | `results.length > 0` | FlatList with highlighted entries |
 | No results | `results.length === 0 && !loading` | Search icon + "No entries found" |
 | Error | `error && !loading` | Cloud-offline icon + error message + retry |
+| Offline results | `isOfflineResults && results.length > 0` | Results + amber footer: "Searching recent cached entries only" |
 | Premium banner | `!isGuest && !isSubscribed && query.length === 0` | "Upgrade for Full-Text Search" |
 
 ---
@@ -1588,6 +1589,7 @@ Timeout:              15000ms
 | `@daiyly_cache_insights_streak` | `CachedData<JournalStreak>` | Insights streak cache | `insights.tsx` |
 | `@fams_api_base_url` | `string` | Remote config URL override | `lib/api.ts` |
 | `@daiyly_last_version_check` | `string` (timestamp) | Last force-update version check | `lib/version.ts` |
+| `@daiyly_force_update_dismiss` | `string` (timestamp) | Temporary 1-hour force update dismiss | `ForceUpdateModal.tsx` |
 | `@daiyly_review_state` | `ReviewState` | Review prompt state (count, entries, last prompted) | `lib/review.ts` |
 | Onboarding seen key | `string` | Managed by `lib/onboarding.ts` | `onboarding.tsx` |
 
@@ -1692,9 +1694,16 @@ graph TD
 1. `refreshApiBaseUrl()` fetches `/api/config` which returns `min_app_version: "1.0.0"`
 2. `api.ts` stores this in `_remoteMinVersion` module variable, exposed via `getRemoteMinVersion()`
 3. `_layout.tsx` calls `compareVersions(getAppVersion(), minVersion)` after config fetch
-4. If current version is below minimum, `ForceUpdateModal` renders — full-screen, non-dismissible
-5. "Update Now" button opens the App Store listing via `Linking.openURL()`
-6. Version checks are throttled to every 6 hours via AsyncStorage
+4. Before showing modal, checks `wasRecentlyDismissed()` — if user dismissed within last hour, skips
+5. If current version is below minimum, `ForceUpdateModal` renders — full-screen blocking modal
+6. "Update Now" button opens the App Store listing via `Linking.openURL()`
+7. After tapping "Update Now", a "Try again later" link appears (handles regional store propagation delays)
+8. "Try again later" dismisses the modal for 1 hour (`@daiyly_force_update_dismiss` key) — modal re-appears on next app launch after cooldown
+9. Version checks are throttled to every 6 hours via AsyncStorage
+
+### Anti-zombie design
+
+App Store updates can take up to 24 hours to propagate regionally. Without the temporary dismiss, users would be stuck in an infinite loop: modal → store → no update available → back to modal. The 1-hour dismiss window prevents this while still enforcing the update requirement.
 
 ### Admin control
 
@@ -1737,6 +1746,17 @@ Expo Router auto-generates deep link handling from the file-based routing struct
 | `daiyly://paywall` | `app/(protected)/paywall.tsx` |
 
 All deep links respect the auth guard — unauthenticated users are redirected to login first.
+
+### Cold start race condition handling
+
+When the app is fully closed and a deep link triggers a cold start:
+
+1. `(protected)/_layout.tsx` captures the initial URL via `Linking.getInitialURL()` on mount
+2. While auth and biometrics load, the layout shows a spinner (deep link target is NOT rendered yet)
+3. After auth resolves and biometric check passes, if there's a pending deep link, `router.replace()` navigates to it
+4. This prevents the race where Router tries to render a protected route before auth is ready
+
+The pending URL is stored in a `useRef` and consumed exactly once — no stale navigation risk.
 
 ---
 
