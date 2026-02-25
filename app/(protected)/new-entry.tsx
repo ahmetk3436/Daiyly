@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import api from '../../lib/api';
 import {
   saveGuestEntry,
@@ -28,6 +30,7 @@ import {
   hapticError,
   hapticMedium,
 } from '../../lib/haptics';
+import { trackEntrySaved } from '../../lib/review';
 import { MOOD_OPTIONS } from '../../types/journal';
 
 const MOOD_SCORES: number[] = [20, 40, 60, 80, 100];
@@ -54,8 +57,21 @@ const ACTIVITY_TAGS = [
   { id: 'family', label: 'Family', icon: 'heart-outline' as const },
 ];
 
+const DRAFT_KEY = '@daiyly_draft';
+
+interface DraftData {
+  selectedMood: string | null;
+  moodScore: number;
+  title: string;
+  content: string;
+  cardColor: string;
+  selectedTags: string[];
+  savedAt: string;
+}
+
 export default function NewEntryScreen() {
   const { isAuthenticated, isGuest } = useAuth();
+  const { isDark } = useTheme();
   const params = useLocalSearchParams<{ quickMood?: string }>();
 
   const [selectedMood, setSelectedMood] = useState<string | null>(
@@ -67,6 +83,48 @@ export default function NewEntryScreen() {
   const [cardColor, setCardColor] = useState('#6366F1');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const draftTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Restore draft on mount
+  useEffect(() => {
+    if (params.quickMood) return; // Skip draft restore if quick mood was tapped
+    AsyncStorage.getItem(DRAFT_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const draft: DraftData = JSON.parse(raw);
+        if (draft.content || draft.title || draft.selectedMood) {
+          setSelectedMood(draft.selectedMood);
+          setMoodScore(draft.moodScore);
+          setTitle(draft.title);
+          setContent(draft.content);
+          setCardColor(draft.cardColor);
+          setSelectedTags(draft.selectedTags || []);
+          setDraftRestored(true);
+          // Auto-hide indicator after 3s
+          setTimeout(() => setDraftRestored(false), 3000);
+        }
+      } catch {}
+    }).catch(() => {});
+  }, []);
+
+  // Debounced draft save
+  const saveDraft = useCallback(() => {
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      const draft: DraftData = {
+        selectedMood, moodScore, title, content, cardColor, selectedTags,
+        savedAt: new Date().toISOString(),
+      };
+      AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft)).catch(() => {});
+    }, 1000);
+  }, [selectedMood, moodScore, title, content, cardColor, selectedTags]);
+
+  // Trigger draft save on any change
+  useEffect(() => {
+    saveDraft();
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+  }, [saveDraft]);
 
   // Auto-set mood score from selected mood
   useEffect(() => {
@@ -118,6 +176,9 @@ export default function NewEntryScreen() {
     setSaving(true);
 
     try {
+      // Local date string (YYYY-MM-DD) for correct timezone
+      const entryDate = new Date().toISOString().split('T')[0];
+
       if (isAuthenticated) {
         // Save via API
         const payload: Record<string, unknown> = {
@@ -125,6 +186,8 @@ export default function NewEntryScreen() {
           mood_score: moodScore,
           content: content.trim() || (title.trim() || ''),
           card_color: cardColor,
+          tags: selectedTags,
+          entry_date: entryDate,
         };
 
         await api.post('/journals', payload);
@@ -154,12 +217,17 @@ export default function NewEntryScreen() {
           mood_score: moodScore,
           content: content.trim() || (title.trim() || ''),
           card_color: cardColor,
+          tags: selectedTags,
           created_at: new Date().toISOString(),
+          entry_date: entryDate,
         });
         await incrementGuestUses();
       }
 
+      // Clear draft on successful save
+      AsyncStorage.removeItem(DRAFT_KEY).catch(() => {});
       hapticSuccess();
+      trackEntrySaved().catch(() => {}); // fire-and-forget review prompt
       router.back();
     } catch (err: any) {
       hapticError();
@@ -189,13 +257,13 @@ export default function NewEntryScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
         {/* Header */}
-        <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
+        <View className="flex-row items-center justify-between px-5 py-3 border-b border-border">
           <Pressable
             onPress={() => {
               hapticLight();
@@ -203,10 +271,10 @@ export default function NewEntryScreen() {
             }}
             className="flex-row items-center"
           >
-            <Ionicons name="chevron-back" size={24} color="#374151" />
-            <Text className="text-base text-gray-600 ml-1">Back</Text>
+            <Ionicons name="chevron-back" size={24} color={isDark ? '#94A3B8' : '#374151'} />
+            <Text className="text-base text-text-secondary ml-1">Back</Text>
           </Pressable>
-          <Text className="text-lg font-semibold text-gray-900">
+          <Text className="text-lg font-semibold text-text-primary">
             New Entry
           </Text>
           <View className="w-16" />
@@ -218,9 +286,19 @@ export default function NewEntryScreen() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 120 }}
         >
+          {/* Draft Restored Indicator */}
+          {draftRestored && (
+            <View className="bg-blue-50 dark:bg-blue-900/30 rounded-xl px-4 py-2.5 mt-3 flex-row items-center border border-blue-100 dark:border-blue-800">
+              <Ionicons name="document-outline" size={16} color="#2563EB" />
+              <Text className="text-xs text-blue-700 dark:text-blue-300 ml-2 font-medium">
+                Draft restored
+              </Text>
+            </View>
+          )}
+
           {/* Mood Selector */}
           <View className="mt-5">
-            <Text className="text-base font-semibold text-gray-800 mb-3">
+            <Text className="text-base font-semibold text-text-primary mb-3">
               How are you feeling?
             </Text>
             <View className="flex-row flex-wrap" style={{ gap: 10 }}>
@@ -237,20 +315,20 @@ export default function NewEntryScreen() {
                   >
                     <View
                       className={`w-16 h-16 rounded-full items-center justify-center ${
-                        isSelected ? 'border-2' : 'border border-gray-200'
+                        isSelected ? 'border-2' : 'border border-border-strong'
                       }`}
                       style={{
                         backgroundColor: isSelected
                           ? `${mood.color}15`
-                          : '#F9FAFB',
-                        borderColor: isSelected ? mood.color : '#E5E7EB',
+                          : isDark ? '#1E293B' : '#F9FAFB',
+                        borderColor: isSelected ? mood.color : isDark ? '#475569' : '#E5E7EB',
                       }}
                     >
                       <Text className="text-2xl">{mood.emoji}</Text>
                     </View>
                     <Text
                       className={`text-xs mt-1 ${
-                        isSelected ? 'font-semibold' : 'text-gray-500'
+                        isSelected ? 'font-semibold' : 'text-text-secondary'
                       }`}
                       style={isSelected ? { color: mood.color } : undefined}
                     >
@@ -265,7 +343,7 @@ export default function NewEntryScreen() {
           {/* Mood Score */}
           <View className="mt-6">
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-base font-semibold text-gray-800">
+              <Text className="text-base font-semibold text-text-primary">
                 Rate your mood
               </Text>
               <View
@@ -296,7 +374,7 @@ export default function NewEntryScreen() {
                   >
                     <View
                       className={`py-3 rounded-xl items-center ${
-                        isSelected ? '' : 'bg-gray-100'
+                        isSelected ? '' : 'bg-surface-muted'
                       }`}
                       style={
                         isSelected
@@ -306,7 +384,7 @@ export default function NewEntryScreen() {
                     >
                       <Text
                         className={`text-sm font-semibold ${
-                          isSelected ? 'text-white' : 'text-gray-600'
+                          isSelected ? 'text-white' : 'text-text-secondary'
                         }`}
                       >
                         {score}
@@ -321,9 +399,9 @@ export default function NewEntryScreen() {
           {/* Title Input */}
           <View className="mt-6">
             <TextInput
-              className="bg-gray-50 rounded-xl px-4 py-3.5 text-base text-gray-900"
+              className="bg-input-bg rounded-xl px-4 py-3.5 text-base text-text-primary"
               placeholder="How are you feeling? (optional)"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
               value={title}
               onChangeText={setTitle}
               maxLength={100}
@@ -332,14 +410,14 @@ export default function NewEntryScreen() {
 
           {/* Journal Content */}
           <View className="mt-4">
-            <Text className="text-base font-semibold text-gray-800 mb-2">
+            <Text className="text-base font-semibold text-text-primary mb-2">
               Journal
             </Text>
             <TextInput
               multiline
-              className="bg-gray-50 rounded-xl p-4 text-base text-gray-900 min-h-[200px]"
+              className="bg-input-bg rounded-xl p-4 text-base text-text-primary min-h-[200px]"
               placeholder="What's on your mind? Write freely..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
               value={content}
               onChangeText={setContent}
               textAlignVertical="top"
@@ -349,7 +427,7 @@ export default function NewEntryScreen() {
 
           {/* Activity Tags */}
           <View className="mt-6">
-            <Text className="text-base font-semibold text-gray-800 mb-3">
+            <Text className="text-base font-semibold text-text-primary mb-3">
               Activities
             </Text>
             <View className="flex-row flex-wrap" style={{ gap: 8 }}>
@@ -361,20 +439,20 @@ export default function NewEntryScreen() {
                     onPress={() => toggleTag(tag.id)}
                     className={`flex-row items-center rounded-full px-3.5 py-2 border ${
                       isSelected
-                        ? 'bg-blue-50 border-blue-300'
-                        : 'bg-white border-gray-200'
+                        ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700'
+                        : 'bg-surface-elevated border-border-strong'
                     }`}
                   >
                     <Ionicons
                       name={tag.icon}
                       size={16}
-                      color={isSelected ? '#2563EB' : '#6B7280'}
+                      color={isSelected ? '#2563EB' : (isDark ? '#94A3B8' : '#6B7280')}
                     />
                     <Text
                       className={`text-sm ml-1.5 ${
                         isSelected
-                          ? 'font-semibold text-blue-700'
-                          : 'text-gray-600'
+                          ? 'font-semibold text-blue-700 dark:text-blue-400'
+                          : 'text-text-secondary'
                       }`}
                     >
                       {tag.label}
@@ -387,7 +465,7 @@ export default function NewEntryScreen() {
 
           {/* Card Color */}
           <View className="mt-6">
-            <Text className="text-base font-semibold text-gray-800 mb-3">
+            <Text className="text-base font-semibold text-text-primary mb-3">
               Card Color
             </Text>
             <View className="flex-row" style={{ gap: 12 }}>
@@ -405,7 +483,7 @@ export default function NewEntryScreen() {
                       className={`w-10 h-10 rounded-full ${
                         isSelected
                           ? 'border-[3px] border-blue-500'
-                          : 'border-2 border-gray-200'
+                          : 'border-2 border-border-strong'
                       }`}
                       style={{ backgroundColor: color }}
                     />
@@ -418,11 +496,11 @@ export default function NewEntryScreen() {
 
         {/* Save Button (sticky bottom) */}
         <View
-          className="px-5 py-4 bg-white border-t border-gray-100"
+          className="px-5 py-4 bg-background border-t border-border"
           style={{
             shadowColor: '#000',
             shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.05,
+            shadowOpacity: isDark ? 0.2 : 0.05,
             shadowRadius: 8,
             elevation: 4,
           }}
@@ -431,15 +509,15 @@ export default function NewEntryScreen() {
             onPress={handleSave}
             disabled={saving || !selectedMood}
             className={`rounded-2xl py-4 items-center flex-row justify-center ${
-              !selectedMood ? 'bg-gray-300' : 'bg-blue-600 active:bg-blue-700'
+              !selectedMood ? 'bg-surface-muted' : 'bg-blue-600 active:bg-blue-700'
             }`}
           >
             {saving ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
-                <Text className="text-white text-base font-bold ml-2">
+                <Ionicons name="checkmark-circle" size={22} color={!selectedMood ? (isDark ? '#475569' : '#9CA3AF') : '#FFFFFF'} />
+                <Text className={`text-base font-bold ml-2 ${!selectedMood ? 'text-text-muted' : 'text-white'}`}>
                   Save Entry
                 </Text>
               </>

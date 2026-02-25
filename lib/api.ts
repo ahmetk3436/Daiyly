@@ -2,19 +2,7 @@ import axios, {
   AxiosError,
   InternalAxiosRequestConfig,
 } from 'axios';
-// Sentry removed - using no-op stub
-const Sentry = {
-  init: () => {},
-  captureException: (e: any) => console.error(e),
-  captureMessage: (m: string) => console.warn(m),
-  setUser: (_u: any) => {},
-  addBreadcrumb: (_b: any) => {},
-  withScope: (cb: any) => cb({ setExtra: () => {}, setTag: () => {} }),
-  Native: { wrap: (c: any) => c },
-  wrap: (c: any) => c,
-  ReactNavigationInstrumentation: class {},
-  ReactNativeTracing: class {},
-};
+import * as Sentry from '@sentry/react-native';
 import {
   getAccessToken,
   getRefreshToken,
@@ -166,6 +154,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const _CACHED_URL_KEY = '@fams_api_base_url';
 
+// Force update: min_app_version from remote config
+let _remoteMinVersion: string | null = null;
+
+export function getRemoteMinVersion(): string | null {
+  return _remoteMinVersion;
+}
+
 // Restore cached URL immediately (runs async; first requests use hardcoded URL)
 AsyncStorage.getItem(_CACHED_URL_KEY).then((cached) => {
   if (!cached) return;
@@ -189,6 +184,10 @@ export async function refreshApiBaseUrl(): Promise<void> {
     });
     if (!res.ok) return;
     const data = await res.json() as Record<string, unknown>;
+    const minVer = data?.min_app_version as string | undefined;
+    if (minVer && typeof minVer === 'string') {
+      _remoteMinVersion = minVer;
+    }
     const remoteUrl = data?.api_base_url as string | undefined;
     if (!remoteUrl || typeof remoteUrl !== 'string') return;
     _applyApiUrl(remoteUrl);

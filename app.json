@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Daiyly",
+    "slug": "daiyly",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "appfactory",
-    "userInterfaceStyle": "light",
+    "scheme": "daiyly",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -14,7 +14,9 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ahmetkizilkaya.daiyly",
+      "associatedDomains": ["applinks:vexellabspro.com"]
     },
     "android": {
       "adaptiveIcon": {
@@ -29,7 +31,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      ["@sentry/react-native/expo", {}]
     ]
   }
 }

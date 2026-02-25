@@ -3,7 +3,7 @@
 All user flows with Mermaid diagrams, API endpoints, request/response shapes, guest vs authenticated differences, offline behavior, and library internals.
 
 **Screens**: 17 files total (including 2 layout files)
-**Last updated**: 2026-02-25 (migration safety fix + search offline improvement)
+**Last updated**: 2026-02-25 (5 production features: force update, deep linking, store review, legal links, subscription cancel warning)
 
 ---
 
@@ -33,6 +33,11 @@ All user flows with Mermaid diagrams, API endpoints, request/response shapes, gu
 - [Guest vs Authenticated Matrix](#guest-vs-authenticated-matrix)
 - [AsyncStorage Keys](#asyncstorage-keys)
 - [Library Files Reference](#library-files-reference)
+- [Force Update Mechanism](#force-update-mechanism)
+- [Deep Linking](#deep-linking)
+- [Store Review Prompts](#store-review-prompts)
+- [Legal Compliance (Auth Screens)](#legal-compliance-auth-screens)
+- [Subscription Cancel Warning](#subscription-cancel-warning)
 
 ---
 
@@ -101,9 +106,14 @@ graph TD
 
 Providers chain: `SafeAreaProvider` > `ThemeProvider` > `AuthProvider`
 
-On mount (fire-and-forget):
-- `refreshApiBaseUrl()` — `GET /api/config` for remote URL override, caches to AsyncStorage
-- `initLanguage()` — i18n initialization from stored language preference
+On mount (async init):
+1. `await refreshApiBaseUrl()` — `GET /api/config` for remote URL override + captures `min_app_version`
+2. `initLanguage()` — i18n initialization from stored language preference
+3. Force update check — compares app version against `min_app_version` from config, shows `ForceUpdateModal` if outdated (6-hour throttle)
+
+Components rendered:
+- `<ThemedApp />` — wraps `<Slot />` with StatusBar
+- `<ForceUpdateModal visible={forceUpdate} />` — full-screen non-dismissible modal (only when version is outdated)
 
 Stack screens:
 - `(auth)` — `slide_from_right` animation
@@ -1577,6 +1587,8 @@ Timeout:              15000ms
 | `@daiyly_cache_insights_data` | `CachedData<WeeklyInsights>` | Insights cache | `insights.tsx` |
 | `@daiyly_cache_insights_streak` | `CachedData<JournalStreak>` | Insights streak cache | `insights.tsx` |
 | `@fams_api_base_url` | `string` | Remote config URL override | `lib/api.ts` |
+| `@daiyly_last_version_check` | `string` (timestamp) | Last force-update version check | `lib/version.ts` |
+| `@daiyly_review_state` | `ReviewState` | Review prompt state (count, entries, last prompted) | `lib/review.ts` |
 | Onboarding seen key | `string` | Managed by `lib/onboarding.ts` | `onboarding.tsx` |
 
 ---
@@ -1589,6 +1601,7 @@ Timeout:              15000ms
 - Response interceptor: auto-refresh on 401 with mutex + queue pattern
 - `authApi` — separate instance for `/api` (auth/public) endpoints
 - Remote config: `refreshApiBaseUrl()` fetches `/api/config`, caches URL override
+- `getRemoteMinVersion()` — returns `min_app_version` from last config fetch (used by force update)
 
 ### `lib/guest.ts`
 - `getGuestEntries()` — read from AsyncStorage
@@ -1625,6 +1638,17 @@ Timeout:              15000ms
 - `hapticLight()`, `hapticMedium()`, `hapticSuccess()`, `hapticError()`, `hapticWarning()`, `hapticSelection()`
 - Wraps expo-haptics for consistent feedback
 
+### `lib/version.ts`
+- `compareVersions(current, minimum)` — semver comparison, returns true if current >= minimum
+- `getAppVersion()` — reads from `Constants.expoConfig.version`
+- `shouldCheckVersion()` — throttles checks to every 6 hours via AsyncStorage
+- `markVersionChecked()` — persists last check timestamp
+
+### `lib/review.ts`
+- `maybeRequestReview(trigger)` — checks availability, cooldown (90 days), max prompts (3 lifetime)
+- `trackEntrySaved()` — increments entry counter, prompts at 5th/20th/50th entry
+- Trigger types: `entry_saved` (from new-entry.tsx), `streak_milestone` (from home.tsx at 7/14/30/60/100)
+
 ### `contexts/AuthContext.tsx`
 - Provides: `isAuthenticated`, `isGuest`, `isLoading`, `user`
 - Methods: `login()`, `register()`, `loginWithApple()`, `logout()`, `deleteAccount()`, `enterGuestMode()`
@@ -1639,6 +1663,150 @@ Timeout:              15000ms
 ### `contexts/SubscriptionContext.tsx`
 - Provides: `isSubscribed`, `checkSubscription()`, `handleRestore()`
 - Wraps RevenueCat entitlement check ("premium")
+
+---
+
+## Force Update Mechanism
+
+**Files**: `lib/version.ts`, `lib/api.ts`, `components/ForceUpdateModal.tsx`, `app/_layout.tsx`
+
+### Flow
+
+```mermaid
+graph TD
+    A[App Launch] --> B[refreshApiBaseUrl]
+    B --> C{min_app_version in config?}
+    C -->|No| D[Continue normally]
+    C -->|Yes| E{shouldCheckVersion? 6h throttle}
+    E -->|No, checked recently| D
+    E -->|Yes| F{compareVersions current >= min?}
+    F -->|Yes, OK| G[markVersionChecked]
+    F -->|No, outdated| H[Show ForceUpdateModal]
+    H --> I[User taps Update Now]
+    I --> J[Opens App Store / Play Store]
+    G --> D
+```
+
+### How it works
+
+1. `refreshApiBaseUrl()` fetches `/api/config` which returns `min_app_version: "1.0.0"`
+2. `api.ts` stores this in `_remoteMinVersion` module variable, exposed via `getRemoteMinVersion()`
+3. `_layout.tsx` calls `compareVersions(getAppVersion(), minVersion)` after config fetch
+4. If current version is below minimum, `ForceUpdateModal` renders — full-screen, non-dismissible
+5. "Update Now" button opens the App Store listing via `Linking.openURL()`
+6. Version checks are throttled to every 6 hours via AsyncStorage
+
+### Admin control
+
+Update minimum version via backend admin API:
+```
+PUT /api/admin/config/min_app_version
+Authorization: Bearer <ADMIN_TOKEN>
+Body: { "value": "1.1.0" }
+```
+
+---
+
+## Deep Linking
+
+**File**: `app.json`
+
+### Configuration
+
+```json
+{
+  "scheme": "daiyly",
+  "ios": {
+    "bundleIdentifier": "com.ahmetkizilkaya.daiyly",
+    "associatedDomains": ["applinks:vexellabspro.com"]
+  }
+}
+```
+
+### Supported deep links
+
+Expo Router auto-generates deep link handling from the file-based routing structure:
+
+| Deep Link | Route File |
+|-----------|-----------|
+| `daiyly://home` | `app/(protected)/home.tsx` |
+| `daiyly://new-entry` | `app/(protected)/new-entry.tsx` |
+| `daiyly://entry/[id]` | `app/(protected)/entry/[id].tsx` |
+| `daiyly://insights` | `app/(protected)/insights.tsx` |
+| `daiyly://settings` | `app/(protected)/settings.tsx` |
+| `daiyly://paywall` | `app/(protected)/paywall.tsx` |
+
+All deep links respect the auth guard — unauthenticated users are redirected to login first.
+
+---
+
+## Store Review Prompts
+
+**Files**: `lib/review.ts`, `app/(protected)/new-entry.tsx`, `app/(protected)/home.tsx`
+
+### Trigger points
+
+1. **Entry saved** (`new-entry.tsx`): After every successful journal save, `trackEntrySaved()` increments a counter. Prompts at the 5th, 20th, and 50th entry.
+2. **Streak milestone** (`home.tsx`): When `current_streak` hits 7, 14, 30, 60, or 100, `maybeRequestReview('streak_milestone')` fires.
+
+### Safety guards
+
+| Guard | Value |
+|-------|-------|
+| Cooldown | 90 days between prompts |
+| Lifetime max | 3 prompts total |
+| Availability check | `StoreReview.isAvailableAsync()` — returns false in Expo Go |
+| Failure mode | Silent — never blocks UX, all calls are fire-and-forget with `.catch(() => {})` |
+
+### AsyncStorage key
+
+`@daiyly_review_state` — stores `{ lastPromptedAt, totalEntries, promptCount }`
+
+---
+
+## Legal Compliance (Auth Screens)
+
+**Files**: `app/(auth)/register.tsx`, `app/(auth)/login.tsx`
+
+Both auth screens display legal links below the form:
+
+> By continuing, you agree to our **Terms of Service** and **Privacy Policy**
+
+- Terms: `https://vexellabspro.com/daiyly/terms`
+- Privacy: `https://vexellabspro.com/daiyly/privacy`
+
+Links open via `Linking.openURL()`. Required by Apple App Store Review Guidelines (5.1.1).
+
+---
+
+## Subscription Cancel Warning
+
+**File**: `app/(protected)/settings.tsx`
+
+### Flow (subscribed users)
+
+```mermaid
+graph TD
+    A[Tap Delete Account] --> B[Alert: Are you sure? Permanent.]
+    B -->|Cancel| Z[Abort]
+    B -->|Delete| C{isSubscribed?}
+    C -->|No| D[Show password modal]
+    C -->|Yes| E[Alert: Active Subscription warning]
+    E -->|Manage Subscription| F[Opens iOS/Android subscription settings]
+    E -->|Continue Deletion| D
+    E -->|Cancel| Z
+    D --> G[Enter password]
+    G --> H[deleteAccount API call]
+```
+
+### Subscription management URLs
+
+| Platform | URL |
+|----------|-----|
+| iOS | `https://apps.apple.com/account/subscriptions` |
+| Android | `https://play.google.com/store/account/subscriptions` |
+
+The warning is a 3-button Alert with "Manage Subscription" (opens store), "Continue Deletion" (destructive, proceeds to password modal), and "Cancel".
 
 ---
 

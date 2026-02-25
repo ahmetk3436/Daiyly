@@ -12,9 +12,12 @@ import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import api from '../../lib/api';
 import { getGuestEntries } from '../../lib/guest';
 import { hapticLight, hapticSelection, hapticSuccess } from '../../lib/haptics';
+import { maybeRequestReview } from '../../lib/review';
+import { cacheSet, cacheGet } from '../../lib/cache';
 import { MOOD_OPTIONS } from '../../types/journal';
 import type { JournalEntry, GuestEntry, JournalStreak } from '../../types/journal';
 
@@ -72,17 +75,20 @@ interface DisplayEntry {
 
 export default function HomeScreen() {
   const { user, isAuthenticated, isGuest } = useAuth();
+  const { isDark } = useTheme();
 
   const [recentEntries, setRecentEntries] = useState<DisplayEntry[]>([]);
   const [streak, setStreak] = useState<JournalStreak | null>(null);
   const [todayMood, setTodayMood] = useState<DisplayEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isStale, setIsStale] = useState(false);
 
   const userName = user?.email?.split('@')[0] || 'there';
 
   const fetchHomeData = useCallback(async () => {
     try {
+      setIsStale(false);
       if (isAuthenticated) {
         const [entriesRes, streakRes] = await Promise.all([
           api.get('/journals?offset=0&limit=5'),
@@ -102,6 +108,17 @@ export default function HomeScreen() {
 
         setRecentEntries(entries);
         setStreak(streakRes.data);
+
+        // Review prompt on streak milestones
+        const STREAK_MILESTONES = [7, 14, 30, 60, 100];
+        const cs = streakRes.data?.current_streak || 0;
+        if (cs > 0 && STREAK_MILESTONES.includes(cs)) {
+          maybeRequestReview('streak_milestone').catch(() => {});
+        }
+
+        // Cache for offline use
+        cacheSet('home_entries', entries);
+        if (streakRes.data) cacheSet('home_streak', streakRes.data);
 
         // Check if today has an entry
         const today = new Date().toDateString();
@@ -138,6 +155,21 @@ export default function HomeScreen() {
       }
     } catch (err) {
       console.error('Failed to load home data:', err);
+      // Offline fallback: try cache
+      if (isAuthenticated) {
+        const cached = await cacheGet<DisplayEntry[]>('home_entries');
+        const cachedStreak = await cacheGet<JournalStreak>('home_streak');
+        if (cached) {
+          setRecentEntries(cached.data);
+          setIsStale(true);
+          const today = new Date().toDateString();
+          const todayEntry = cached.data.find(
+            (e) => new Date(e.created_at).toDateString() === today
+          );
+          setTodayMood(todayEntry || null);
+        }
+        if (cachedStreak) setStreak(cachedStreak.data);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -177,10 +209,10 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-background" edges={['top']}>
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#2563EB" />
-          <Text className="text-base text-gray-400 mt-4">
+          <Text className="text-base text-text-muted mt-4">
             Loading your journal...
           </Text>
         </View>
@@ -191,7 +223,7 @@ export default function HomeScreen() {
   const currentStreak = streak?.current_streak || 0;
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
@@ -208,11 +240,11 @@ export default function HomeScreen() {
         <View className="px-6 pt-6 pb-2">
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
-              <Text className="text-sm text-gray-400 font-medium">
+              <Text className="text-sm text-text-muted font-medium">
                 {getGreetingEmoji()} {getGreeting()}
               </Text>
               <Text
-                className="text-2xl font-bold text-gray-900 mt-0.5"
+                className="text-2xl font-bold text-text-primary mt-0.5"
                 numberOfLines={1}
               >
                 {userName}
@@ -226,10 +258,10 @@ export default function HomeScreen() {
                   hapticLight();
                   router.push('/(protected)/insights');
                 }}
-                className="flex-row items-center bg-amber-50 rounded-full px-3 py-1.5 border border-amber-200"
+                className="flex-row items-center bg-amber-50 dark:bg-amber-900/30 rounded-full px-3 py-1.5 border border-amber-200 dark:border-amber-700"
               >
                 <Text className="text-lg mr-1">{'\u{1F525}'}</Text>
-                <Text className="text-sm font-bold text-amber-700">
+                <Text className="text-sm font-bold text-amber-700 dark:text-amber-400">
                   {currentStreak}
                 </Text>
               </Pressable>
@@ -237,20 +269,30 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Offline indicator */}
+        {isStale && (
+          <View className="mx-6 mt-2 bg-amber-50 dark:bg-amber-900/20 rounded-xl px-4 py-2 flex-row items-center border border-amber-100 dark:border-amber-800">
+            <Ionicons name="cloud-offline-outline" size={14} color="#D97706" />
+            <Text className="text-xs text-amber-700 dark:text-amber-400 ml-2">
+              Showing cached data — pull to refresh
+            </Text>
+          </View>
+        )}
+
         {/* Today's Mood Summary */}
         {todayMood && (
           <View className="mx-6 mt-3 mb-1">
             <Pressable
-              className="bg-blue-50 rounded-2xl p-4 flex-row items-center border border-blue-100 active:scale-[0.98]"
+              className="bg-blue-50 dark:bg-blue-900/30 rounded-2xl p-4 flex-row items-center border border-blue-100 dark:border-blue-800 active:scale-[0.98]"
               onPress={() => handleEntryPress(todayMood.id)}
             >
               <Text className="text-3xl mr-3">{todayMood.mood_emoji}</Text>
               <View className="flex-1">
-                <Text className="text-xs text-blue-500 font-medium">
+                <Text className="text-xs text-blue-500 dark:text-blue-400 font-medium">
                   Today's Mood
                 </Text>
                 <Text
-                  className="text-sm text-gray-700 mt-0.5"
+                  className="text-sm text-text-secondary mt-0.5"
                   numberOfLines={1}
                 >
                   {todayMood.content || 'Tap to view your entry'}
@@ -308,7 +350,7 @@ export default function HomeScreen() {
 
         {/* Quick Mood Selector */}
         <View className="mt-6 px-6">
-          <Text className="text-sm font-semibold text-gray-500 mb-3">
+          <Text className="text-sm font-semibold text-text-secondary mb-3">
             Quick Check-in
           </Text>
           <ScrollView
@@ -328,11 +370,41 @@ export default function HomeScreen() {
                 >
                   <Text className="text-2xl">{mood.emoji}</Text>
                 </View>
-                <Text className="text-xs text-gray-500">{mood.label}</Text>
+                <Text className="text-xs text-text-secondary">{mood.label}</Text>
               </Pressable>
             ))}
           </ScrollView>
         </View>
+
+        {/* Share Your Mood Card */}
+        {recentEntries.length > 0 && (
+          <View className="px-6 mt-5">
+            <Pressable
+              onPress={() => {
+                hapticLight();
+                router.push('/(protected)/sharing');
+              }}
+              className="active:scale-[0.97]"
+            >
+              <View
+                className="bg-purple-50 dark:bg-purple-900/30 rounded-2xl p-4 flex-row items-center border border-purple-100 dark:border-purple-800"
+              >
+                <View className="bg-purple-100 dark:bg-purple-800 w-10 h-10 rounded-xl items-center justify-center mr-3">
+                  <Ionicons name="share-social-outline" size={20} color={isDark ? '#C084FC' : '#7C3AED'} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-purple-900 dark:text-purple-200">
+                    Share Your Mood
+                  </Text>
+                  <Text className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">
+                    Create beautiful share cards for stories
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={isDark ? '#C084FC' : '#7C3AED'} />
+              </View>
+            </Pressable>
+          </View>
+        )}
 
         {/* Guest Mode Banner */}
         {isGuest && (
@@ -341,27 +413,27 @@ export default function HomeScreen() {
               hapticLight();
               router.push('/(auth)/register');
             }}
-            className="mx-6 mt-5 bg-purple-50 rounded-2xl p-4 flex-row items-center border border-purple-100 active:opacity-80"
+            className="mx-6 mt-5 bg-purple-50 dark:bg-purple-900/30 rounded-2xl p-4 flex-row items-center border border-purple-100 dark:border-purple-800 active:opacity-80"
           >
-            <View className="bg-purple-100 w-10 h-10 rounded-full items-center justify-center mr-3">
-              <Ionicons name="person-add-outline" size={20} color="#7C3AED" />
+            <View className="bg-purple-100 dark:bg-purple-800 w-10 h-10 rounded-full items-center justify-center mr-3">
+              <Ionicons name="person-add-outline" size={20} color={isDark ? '#C084FC' : '#7C3AED'} />
             </View>
             <View className="flex-1">
-              <Text className="text-sm font-semibold text-purple-900">
+              <Text className="text-sm font-semibold text-purple-900 dark:text-purple-200">
                 Create a Free Account
               </Text>
-              <Text className="text-xs text-purple-600 mt-0.5">
+              <Text className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">
                 Sync entries, unlock insights & streaks
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#7C3AED" />
+            <Ionicons name="chevron-forward" size={18} color={isDark ? '#C084FC' : '#7C3AED'} />
           </Pressable>
         )}
 
         {/* Recent Entries */}
         <View className="mt-6 px-6">
           <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-sm font-semibold text-gray-500">
+            <Text className="text-sm font-semibold text-text-secondary">
               Recent Entries
             </Text>
             {recentEntries.length > 0 && (
@@ -379,12 +451,12 @@ export default function HomeScreen() {
           </View>
 
           {recentEntries.length === 0 ? (
-            <View className="bg-gray-50 rounded-2xl p-8 items-center">
+            <View className="bg-surface-muted rounded-2xl p-8 items-center">
               <Text className="text-4xl mb-3">{'\u{1F4D3}'}</Text>
-              <Text className="text-base font-semibold text-gray-700">
+              <Text className="text-base font-semibold text-text-primary">
                 No entries yet
               </Text>
-              <Text className="text-sm text-gray-400 text-center mt-1">
+              <Text className="text-sm text-text-muted text-center mt-1">
                 Tap "New Entry" to start your journaling journey
               </Text>
             </View>
@@ -393,11 +465,11 @@ export default function HomeScreen() {
               <Pressable
                 key={entry.id}
                 onPress={() => handleEntryPress(entry.id)}
-                className="bg-white rounded-xl p-4 mb-2.5 border border-gray-100 flex-row items-center active:scale-[0.98]"
+                className="bg-surface-elevated rounded-xl p-4 mb-2.5 border border-border flex-row items-center active:scale-[0.98]"
                 style={{
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.03,
+                  shadowOpacity: isDark ? 0.15 : 0.03,
                   shadowRadius: 3,
                   elevation: 1,
                 }}
@@ -418,12 +490,12 @@ export default function HomeScreen() {
                 {/* Content */}
                 <View className="flex-1">
                   <Text
-                    className="text-sm text-gray-800"
+                    className="text-sm text-text-primary"
                     numberOfLines={2}
                   >
                     {entry.content || 'No content'}
                   </Text>
-                  <Text className="text-xs text-gray-400 mt-1">
+                  <Text className="text-xs text-text-muted mt-1">
                     {timeAgo(entry.created_at)}
                   </Text>
                 </View>

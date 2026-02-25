@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { View, Text, KeyboardAvoidingView, Platform, Pressable, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
@@ -45,22 +45,22 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-background">
     <KeyboardAvoidingView
       className="flex-1"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View className="flex-1 justify-center px-8">
-        <Text className="mb-2 text-3xl font-bold text-gray-900">
+        <Text className="mb-2 text-3xl font-bold text-text-primary">
           Create account
         </Text>
-        <Text className="mb-8 text-base text-gray-500">
+        <Text className="mb-8 text-base text-text-secondary">
           Start building something great
         </Text>
 
         {error ? (
-          <View className="mb-4 rounded-lg bg-red-50 p-3">
-            <Text className="text-sm text-red-600">{error}</Text>
+          <View className="mb-4 rounded-lg bg-red-50 dark:bg-red-900/30 p-3">
+            <Text className="text-sm text-red-600 dark:text-red-400">{error}</Text>
           </View>
         ) : null}
 
@@ -106,13 +106,29 @@ export default function RegisterScreen() {
         />
 
         <View className="mt-6 flex-row items-center justify-center">
-          <Text className="text-gray-500">Already have an account? </Text>
+          <Text className="text-text-secondary">Already have an account? </Text>
           <Link href="/(auth)/login" asChild>
             <Pressable>
               <Text className="font-semibold text-blue-600">Sign In</Text>
             </Pressable>
           </Link>
         </View>
+
+        <Text className="text-center text-xs text-text-muted mt-4 px-4">
+          By creating an account, you agree to our{' '}
+          <Text
+            className="text-blue-600 underline"
+            onPress={() => Linking.openURL('https://vexellabspro.com/daiyly/terms')}
+          >
+            Terms of Service
+          </Text>{' '}and{' '}
+          <Text
+            className="text-blue-600 underline"
+            onPress={() => Linking.openURL('https://vexellabspro.com/daiyly/privacy')}
+          >
+            Privacy Policy
+          </Text>
+        </Text>
       </View>
     </KeyboardAvoidingView>
     </SafeAreaView>

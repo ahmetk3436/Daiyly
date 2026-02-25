@@ -1,6 +1,6 @@
 import '../global.css';
 import '../lib/i18n';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
@@ -9,7 +9,9 @@ import { AuthProvider } from '../contexts/AuthContext';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { initLanguage } from '../lib/i18n';
-import { refreshApiBaseUrl } from '../lib/api';
+import { refreshApiBaseUrl, getRemoteMinVersion } from '../lib/api';
+import { compareVersions, getAppVersion, shouldCheckVersion, markVersionChecked } from '../lib/version';
+import ForceUpdateModal from '../components/ForceUpdateModal';
 
 function ThemedApp() {
   const { isDark } = useTheme();
@@ -29,9 +31,25 @@ function ThemedApp() {
 }
 
 function RootLayout() {
+  const [forceUpdate, setForceUpdate] = useState(false);
+
   useEffect(() => {
-    refreshApiBaseUrl();
-    initLanguage();
+    const init = async () => {
+      await refreshApiBaseUrl();
+      initLanguage();
+
+      // Force update check
+      const minVersion = getRemoteMinVersion();
+      if (minVersion) {
+        const needsCheck = await shouldCheckVersion();
+        if (needsCheck) {
+          const isOk = compareVersions(getAppVersion(), minVersion);
+          if (!isOk) setForceUpdate(true);
+          await markVersionChecked();
+        }
+      }
+    };
+    init();
   }, []);
 
   return (
@@ -42,6 +60,7 @@ function RootLayout() {
             <ThemedApp />
           </AuthProvider>
         </ThemeProvider>
+        <ForceUpdateModal visible={forceUpdate} />
       </SafeAreaProvider>
     </ErrorBoundary>
   );

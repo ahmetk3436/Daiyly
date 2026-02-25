@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { View, Text, KeyboardAvoidingView, Platform, Pressable, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
@@ -35,22 +35,22 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-background">
     <KeyboardAvoidingView
       className="flex-1"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View className="flex-1 justify-center px-8">
-        <Text className="mb-2 text-3xl font-bold text-gray-900">
+        <Text className="mb-2 text-3xl font-bold text-text-primary">
           Welcome back
         </Text>
-        <Text className="mb-8 text-base text-gray-500">
+        <Text className="mb-8 text-base text-text-secondary">
           Sign in to your account
         </Text>
 
         {error ? (
-          <View className="mb-4 rounded-lg bg-red-50 p-3">
-            <Text className="text-sm text-red-600">{error}</Text>
+          <View className="mb-4 rounded-lg bg-red-50 dark:bg-red-900/30 p-3">
+            <Text className="text-sm text-red-600 dark:text-red-400">{error}</Text>
           </View>
         ) : null}
 
@@ -88,7 +88,7 @@ export default function LoginScreen() {
         <AppleSignInButton onError={(msg) => setError(msg)} />
 
         <View className="mt-6 flex-row items-center justify-center">
-          <Text className="text-gray-500">Don't have an account? </Text>
+          <Text className="text-text-secondary">Don't have an account? </Text>
           <Link href="/(auth)/register" asChild>
             <Pressable>
               <Text className="font-semibold text-blue-600">Sign Up</Text>
@@ -105,10 +105,26 @@ export default function LoginScreen() {
             router.replace('/(protected)/home');
           }}
         >
-          <Text className="text-sm text-gray-400">
+          <Text className="text-sm text-text-muted">
             Continue as Guest (3 free entries)
           </Text>
         </Pressable>
+
+        <Text className="text-center text-xs text-text-muted mt-4 px-4">
+          By continuing, you agree to our{' '}
+          <Text
+            className="text-blue-600 underline"
+            onPress={() => Linking.openURL('https://vexellabspro.com/daiyly/terms')}
+          >
+            Terms of Service
+          </Text>{' '}and{' '}
+          <Text
+            className="text-blue-600 underline"
+            onPress={() => Linking.openURL('https://vexellabspro.com/daiyly/privacy')}
+          >
+            Privacy Policy
+          </Text>
+        </Text>
       </View>
     </KeyboardAvoidingView>
     </SafeAreaView>
