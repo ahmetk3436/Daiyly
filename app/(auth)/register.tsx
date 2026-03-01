@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, KeyboardAvoidingView, Platform, Pressable, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import { INTENT_PLAN_KEY } from '../onboarding';
 
 export default function RegisterScreen() {
   const { register } = useAuth();
@@ -35,6 +37,15 @@ export default function RegisterScreen() {
     setIsLoading(true);
     try {
       await register(email, password);
+
+      // Check if user came from onboarding with a plan intent → route to paywall
+      const intentPlan = await AsyncStorage.getItem(INTENT_PLAN_KEY);
+      if (intentPlan) {
+        await AsyncStorage.removeItem(INTENT_PLAN_KEY);
+        router.replace('/(protected)/paywall');
+      } else {
+        router.replace('/(protected)/home');
+      }
     } catch (err: any) {
       setError(
         err.response?.data?.message || 'Registration failed. Please try again.'
@@ -55,7 +66,7 @@ export default function RegisterScreen() {
           Create account
         </Text>
         <Text className="mb-8 text-base text-text-secondary">
-          Start building something great
+          Start your journaling journey
         </Text>
 
         {error ? (

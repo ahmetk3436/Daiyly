@@ -32,6 +32,12 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Daiyly to use Face ID to unlock your journal."
+        }
+      ],
       ["@sentry/react-native/expo", {}]
     ]
   }

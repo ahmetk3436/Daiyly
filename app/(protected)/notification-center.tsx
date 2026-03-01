@@ -169,7 +169,7 @@ export default function NotificationCenterScreen() {
     try {
       // Fetch streak and insights in parallel
       const [streakRes, insightsRes] = await Promise.allSettled([
-        api.get('/streak'),
+        api.get('/journals/streak'),
         api.get('/journals/insights'),
       ]);
 

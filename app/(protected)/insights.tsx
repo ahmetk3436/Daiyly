@@ -226,7 +226,7 @@ export default function InsightsScreen() {
       if (isAuthenticated) {
         const [response, streakRes] = await Promise.all([
           api.get('/journals/insights'),
-          api.get('/streak'),
+          api.get('/journals/streak'),
         ]);
         setInsights(response.data.data);
         setStreak(streakRes.data);

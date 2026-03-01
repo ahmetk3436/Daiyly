@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useColorScheme as useDeviceColorScheme } from 'react-native';
+import { useColorScheme } from 'nativewind';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
@@ -21,11 +21,11 @@ const ThemeContext = createContext<ThemeContextType>({
 const STORAGE_KEY = '@daiyly_settings';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const deviceScheme = useDeviceColorScheme();
+  const { colorScheme, setColorScheme } = useColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
   const [loaded, setLoaded] = useState(false);
 
-  // Load persisted theme preference
+  // Load persisted theme preference and apply to NativeWind
   useEffect(() => {
     const load = async () => {
       try {
@@ -34,6 +34,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(stored);
           if (parsed.themeMode) {
             setThemeModeState(parsed.themeMode);
+            setColorScheme(parsed.themeMode);
           }
         }
       } catch {}
@@ -44,6 +45,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setThemeMode = useCallback(async (mode: ThemeMode) => {
     setThemeModeState(mode);
+    setColorScheme(mode);
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       const s = stored ? JSON.parse(stored) : {};
@@ -52,22 +54,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         JSON.stringify({ ...s, themeMode: mode })
       );
     } catch {}
-  }, []);
-
-  const colorScheme: 'light' | 'dark' =
-    themeMode === 'system'
-      ? deviceScheme === 'dark'
-        ? 'dark'
-        : 'light'
-      : themeMode;
+  }, [setColorScheme]);
 
   const isDark = colorScheme === 'dark';
 
-  // Don't render until we've loaded the preference to prevent flash
   if (!loaded) return null;
 
   return (
-    <ThemeContext.Provider value={{ themeMode, isDark, setThemeMode, colorScheme }}>
+    <ThemeContext.Provider value={{ themeMode, isDark, setThemeMode, colorScheme: colorScheme ?? 'light' }}>
       {children}
     </ThemeContext.Provider>
   );

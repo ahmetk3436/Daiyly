@@ -1,403 +1,279 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   Pressable,
-  ActivityIndicator,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { usePaywallConfig } from '../../contexts/PaywallConfigContext';
+import { hapticLight, hapticSuccess } from '../../lib/haptics';
 import {
-  getOfferings,
-  purchasePackage,
-  restorePurchases,
-  type PurchasesPackage,
-} from '../../lib/purchases';
-import { hapticLight, hapticSuccess, hapticError } from '../../lib/haptics';
+  resolveHeadline,
+  resolveUrgency,
+  getDefaultPlan,
+  type PlanConfig,
+} from '../../lib/paywallConfig';
 
-// RevenueCat UI
-let RevenueCatUI: any = null;
-let PAYWALL_RESULT: any = {
-  PURCHASED: 'PURCHASED',
-  RESTORED: 'RESTORED',
-  NOT_PRESENTED: 'NOT_PRESENTED',
-  ERROR: 'ERROR',
-  CANCELLED: 'CANCELLED',
-};
-try {
-  const mod = require('react-native-purchases-ui');
-  RevenueCatUI = mod.default ?? mod;
-  if (mod.PAYWALL_RESULT) PAYWALL_RESULT = mod.PAYWALL_RESULT;
-} catch {
-  // react-native-purchases-ui not available
-}
-
-const PREMIUM_FEATURES = [
-  {
-    icon: 'analytics-outline' as const,
-    title: 'AI-Powered Mood Analysis',
-    desc: 'Weekly insights that reveal your emotional patterns',
-  },
-  {
-    icon: 'cloud-outline' as const,
-    title: 'Word Cloud Visualization',
-    desc: 'See your most-used words visualized beautifully',
-  },
-  {
-    icon: 'infinite-outline' as const,
-    title: 'Unlimited History',
-    desc: 'Never lose a journal entry -- access everything forever',
-  },
-  {
-    icon: 'search-outline' as const,
-    title: 'Full-Text Search',
-    desc: 'Search across all your entries instantly',
-  },
-  {
-    icon: 'share-outline' as const,
-    title: 'Shareable Mood Cards',
-    desc: 'Beautiful cards to share your journey with others',
-  },
-  {
-    icon: 'download-outline' as const,
-    title: 'Data Export',
-    desc: 'Export your journal data anytime as CSV or JSON',
-  },
-];
-
-function FallbackPaywall({
-  onPurchaseCompleted,
-  onDismiss,
-}: {
-  onPurchaseCompleted: () => Promise<void>;
-  onDismiss: () => void;
-}) {
-  const { isDark } = useTheme();
-  const [packages, setPackages] = useState<PurchasesPackage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [purchasing, setPurchasing] = useState(false);
-  const [restoring, setRestoring] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>(
-    'annual'
-  );
-
-  useEffect(() => {
-    loadOfferings();
-  }, []);
-
-  const loadOfferings = async () => {
-    try {
-      const offerings = await getOfferings();
-      if (offerings && offerings.availablePackages) {
-        setPackages(offerings.availablePackages);
-      }
-    } catch (e) {
-      setError('Failed to load subscription options');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePurchase = async (pkg: PurchasesPackage) => {
-    setPurchasing(true);
-    setError(null);
-    try {
-      await purchasePackage(pkg);
-      hapticSuccess();
-      await onPurchaseCompleted();
-    } catch (e: any) {
-      hapticError();
-      setError(e?.message || 'Purchase failed. Please try again.');
-    } finally {
-      setPurchasing(false);
-    }
-  };
-
-  const handleRestore = async () => {
-    setRestoring(true);
-    setError(null);
-    try {
-      await restorePurchases();
-      hapticSuccess();
-      await onPurchaseCompleted();
-    } catch (e: any) {
-      hapticError();
-      setError(e?.message || 'Restore failed. Please try again.');
-    } finally {
-      setRestoring(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <SafeAreaView className="flex-1 bg-background items-center justify-center">
-        <ActivityIndicator size="large" color="#2563EB" />
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <ScrollView
-        className="flex-1"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
-      >
-        {/* Close Button */}
-        <View className="px-5 pt-3">
-          <Pressable
-            onPress={onDismiss}
-            className="self-end w-8 h-8 rounded-full bg-surface-muted items-center justify-center"
-          >
-            <Ionicons name="close" size={20} color={isDark ? '#94A3B8' : '#6B7280'} />
-          </Pressable>
-        </View>
-
-        {/* Header */}
-        <View className="items-center px-6 pt-4 pb-6">
-          <View className="w-16 h-16 rounded-2xl bg-blue-100 dark:bg-blue-900/40 items-center justify-center mb-4">
-            <Ionicons name="diamond" size={32} color="#2563EB" />
-          </View>
-          <Text className="text-2xl font-bold text-text-primary text-center">
-            Unlock Your Full Potential
-          </Text>
-          <Text className="text-base text-text-secondary text-center mt-2">
-            Deeper insights, powerful search, and more
-          </Text>
-          <View className="flex-row items-center mt-3 bg-green-50 dark:bg-green-900/20 rounded-full px-4 py-1.5 border border-green-100 dark:border-green-800">
-            <Ionicons name="people-outline" size={14} color="#16A34A" />
-            <Text className="text-xs font-semibold text-green-700 dark:text-green-400 ml-1.5">
-              Join 10,000+ journalers building better habits
-            </Text>
-          </View>
-        </View>
-
-        {/* Plan Selection */}
-        <View className="px-5 mb-6">
-          {/* Annual Plan */}
-          <Pressable
-            onPress={() => {
-              hapticLight();
-              setSelectedPlan('annual');
-            }}
-            className={`rounded-2xl p-4 mb-3 border-2 ${
-              selectedPlan === 'annual'
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-border-strong bg-surface-elevated'
-            }`}
-          >
-            <View className="flex-row items-center justify-between">
-              <View>
-                <View className="flex-row items-center">
-                  <Text className="text-base font-bold text-text-primary">
-                    Annual
-                  </Text>
-                  <View className="bg-green-100 dark:bg-green-900/40 rounded-full px-2 py-0.5 ml-2 border border-green-200 dark:border-green-700">
-                    <Text className="text-xs font-bold text-green-700 dark:text-green-400">
-                      SAVE 50%
-                    </Text>
-                  </View>
-                </View>
-                <Text className="text-sm text-text-secondary mt-0.5">
-                  $29.99/year ($2.50/month)
-                </Text>
-              </View>
-              <View
-                className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                  selectedPlan === 'annual'
-                    ? 'border-blue-500 bg-blue-500'
-                    : 'border-border-strong'
-                }`}
-              >
-                {selectedPlan === 'annual' && (
-                  <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                )}
-              </View>
-            </View>
-          </Pressable>
-
-          {/* Monthly Plan */}
-          <Pressable
-            onPress={() => {
-              hapticLight();
-              setSelectedPlan('monthly');
-            }}
-            className={`rounded-2xl p-4 border-2 ${
-              selectedPlan === 'monthly'
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-border-strong bg-surface-elevated'
-            }`}
-          >
-            <View className="flex-row items-center justify-between">
-              <View>
-                <Text className="text-base font-bold text-text-primary">
-                  Monthly
-                </Text>
-                <Text className="text-sm text-text-secondary mt-0.5">
-                  $4.99/month
-                </Text>
-              </View>
-              <View
-                className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                  selectedPlan === 'monthly'
-                    ? 'border-blue-500 bg-blue-500'
-                    : 'border-border-strong'
-                }`}
-              >
-                {selectedPlan === 'monthly' && (
-                  <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                )}
-              </View>
-            </View>
-          </Pressable>
-        </View>
-
-        {/* Trial Badge */}
-        <View className="mx-5 mb-6 bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 border border-amber-100 dark:border-amber-800 flex-row items-center">
-          <Ionicons name="gift-outline" size={20} color="#D97706" />
-          <Text className="text-sm text-amber-700 dark:text-amber-400 ml-2 flex-1">
-            Start with a <Text className="font-bold">3-day free trial</Text>.
-            Cancel anytime.
-          </Text>
-        </View>
-
-        {/* Features */}
-        <View className="px-5 mb-6">
-          <Text className="text-sm font-semibold text-text-secondary mb-3 uppercase tracking-wider">
-            What you get
-          </Text>
-          {PREMIUM_FEATURES.map((feature, index) => (
-            <View
-              key={index}
-              className="flex-row items-center py-3"
-            >
-              <View className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/30 items-center justify-center mr-3">
-                <Ionicons
-                  name={feature.icon}
-                  size={18}
-                  color="#2563EB"
-                />
-              </View>
-              <View className="flex-1">
-                <Text className="text-sm font-semibold text-text-primary">
-                  {feature.title}
-                </Text>
-                <Text className="text-xs text-text-secondary">{feature.desc}</Text>
-              </View>
-              <Ionicons
-                name="checkmark-circle"
-                size={20}
-                color="#22C55E"
-              />
-            </View>
-          ))}
-        </View>
-
-        {error && (
-          <View className="mx-5 mb-4 bg-red-50 dark:bg-red-900/30 rounded-xl p-3 border border-red-100 dark:border-red-800">
-            <Text className="text-sm text-red-600 dark:text-red-400 text-center">{error}</Text>
-          </View>
-        )}
-
-        {/* Purchase Button */}
-        <View className="px-5 mb-4">
-          <Pressable
-            className={`rounded-2xl py-4 items-center ${
-              purchasing ? 'bg-surface-muted' : 'bg-blue-600 active:bg-blue-700'
-            }`}
-            onPress={() => {
-              hapticLight();
-              // Find the matching package from RevenueCat offerings
-              if (packages.length > 0) {
-                const pkg =
-                  packages.find((p) =>
-                    selectedPlan === 'annual'
-                      ? p.packageType === 'ANNUAL' ||
-                        p.identifier?.includes('annual')
-                      : p.packageType === 'MONTHLY' ||
-                        p.identifier?.includes('monthly')
-                  ) || packages[0];
-                handlePurchase(pkg);
-              }
-            }}
-            disabled={purchasing || packages.length === 0}
-          >
-            {purchasing ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text className="text-white text-base font-bold">
-                {selectedPlan === 'annual'
-                  ? 'Start Free Trial -- Then $29.99/yr'
-                  : 'Start Free Trial -- Then $4.99/mo'}
-              </Text>
-            )}
-          </Pressable>
-        </View>
-
-        {/* Reassurance */}
-        <View className="items-center px-5 mb-2">
-          <View className="flex-row items-center">
-            <Ionicons name="shield-checkmark-outline" size={14} color={isDark ? '#94A3B8' : '#6B7280'} />
-            <Text className="text-xs text-text-muted ml-1">
-              Cancel anytime. No commitment required.
-            </Text>
-          </View>
-        </View>
-
-        {/* Restore + Dismiss */}
-        <View className="items-center px-5">
-          <Pressable
-            onPress={handleRestore}
-            disabled={restoring}
-            className="py-3"
-          >
-            {restoring ? (
-              <ActivityIndicator color={isDark ? '#94A3B8' : '#6B7280'} size="small" />
-            ) : (
-              <Text className="text-sm text-text-secondary">Restore Purchase</Text>
-            )}
-          </Pressable>
-          <Pressable onPress={onDismiss} className="py-2">
-            <Text className="text-sm text-text-muted">Maybe Later</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
+const INTENT_PLAN_KEY = '@daiyly_intent_plan';
 
 export default function PaywallScreen() {
-  const { checkSubscription } = useSubscription();
+  const insets = useSafeAreaInsets();
+  const { checkSubscription, handlePurchase, handleRestore, offerings } = useSubscription();
+  const { isDark } = useTheme();
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const { config, isLoading } = usePaywallConfig();
+
+  const firstName = user?.email
+    ? user.email.split('@')[0].split('.')[0].replace(/[^a-zA-Z]/g, '')
+    : null;
+  const displayName = firstName
+    ? firstName.charAt(0).toUpperCase() + firstName.slice(1)
+    : null;
+
+  const defaultPlan = getDefaultPlan(config);
+  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>(
+    defaultPlan.id as 'annual' | 'monthly'
+  );
+  const [purchasing, setPurchasing] = useState(false);
+  const [showUrgency, setShowUrgency] = useState(false);
+
+  const secondaryColor = isDark ? '#CBD5E1' : '#6B7280';
+  const primaryColor = '#2563EB';
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const ts = await AsyncStorage.getItem('@daiyly_trial_start');
+        const daysSince = ts
+          ? Math.floor((Date.now() - new Date(ts).getTime()) / 86_400_000)
+          : 0;
+        setShowUrgency(resolveUrgency(config, daysSince));
+      } catch {
+        setShowUrgency(false);
+      }
+    })();
+  }, [config]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setSelectedPlan(getDefaultPlan(config).id as 'annual' | 'monthly');
+    }
+  }, [isLoading, config]);
+
+  // Honor intent plan from onboarding
+  useEffect(() => {
+    (async () => {
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const intent = await AsyncStorage.getItem(INTENT_PLAN_KEY);
+        if (intent === 'annual' || intent === 'monthly') {
+          setSelectedPlan(intent);
+        }
+      } catch {}
+    })();
+  }, []);
 
   const handleDismiss = () => router.back();
 
   const handlePurchaseCompleted = async () => {
     await checkSubscription();
+    hapticSuccess();
     router.back();
   };
 
-  if (!RevenueCatUI) {
+  const handleSubscribe = async () => {
+    if (!offerings?.availablePackages) return;
+    setPurchasing(true);
+    try {
+      const pkg = offerings.availablePackages.find((p: any) =>
+        selectedPlan === 'annual' ? p.packageType === 'ANNUAL' : p.packageType === 'MONTHLY'
+      ) ?? offerings.availablePackages[0];
+      if (pkg) {
+        const success = await handlePurchase(pkg);
+        if (success) await handlePurchaseCompleted();
+      }
+    } catch {} finally {
+      setPurchasing(false);
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    hapticLight();
+    const success = await handleRestore();
+    if (success) await handlePurchaseCompleted();
+  };
+
+  if (isLoading) {
     return (
-      <FallbackPaywall
-        onPurchaseCompleted={handlePurchaseCompleted}
-        onDismiss={handleDismiss}
-      />
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator size="large" color={primaryColor} />
+      </View>
     );
   }
 
+  const headline = resolveHeadline(config, displayName);
+
+  const renderPlanCard = (plan: PlanConfig) => {
+    const isSelected = selectedPlan === plan.id;
+    return (
+      <Pressable
+        key={plan.id}
+        className={`mb-3 rounded-2xl border-2 p-4 ${
+          isSelected
+            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+            : 'border-border bg-surface'
+        }`}
+        onPress={() => { hapticLight(); setSelectedPlan(plan.id as 'annual' | 'monthly'); }}
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1">
+            <View className="flex-row items-center gap-2">
+              <Text className="text-base font-semibold text-text-primary">{plan.label}</Text>
+              {plan.badge ? (
+                <View className="rounded-full bg-green-500 px-2 py-0.5">
+                  <Text className="text-[10px] font-bold text-white">{plan.badge}</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text className="mt-0.5 text-sm text-text-secondary">
+              {plan.price}{plan.per_month ? ` · ${plan.per_month}` : ''}
+            </Text>
+          </View>
+          <View
+            className={`h-6 w-6 items-center justify-center rounded-full border-2 ${
+              isSelected ? 'border-blue-500 bg-blue-500' : 'border-border'
+            }`}
+          >
+            {isSelected && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+          </View>
+        </View>
+      </Pressable>
+    );
+  };
+
   return (
-    <RevenueCatUI.Paywall
-      onDismiss={handleDismiss}
-      onPurchaseCompleted={handlePurchaseCompleted}
-      onRestoreCompleted={handlePurchaseCompleted}
-      onPurchaseError={() => router.back()}
-      onRestoreError={() => router.back()}
-    />
+    <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
+      {/* Close Button */}
+      <Pressable
+        className="absolute right-5 z-10 h-8 w-8 items-center justify-center rounded-full bg-surface-elevated"
+        style={{ top: insets.top + 12 }}
+        onPress={handleDismiss}
+      >
+        <Ionicons name="close" size={18} color={secondaryColor} />
+      </Pressable>
+
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+      >
+        {/* ── Header ────────────────────────────────────────────── */}
+        <View className="items-center px-6 pb-6 pt-12" style={{ backgroundColor: '#2563EB10' }}>
+          <View className="mb-4 h-16 w-16 items-center justify-center rounded-2xl bg-blue-600">
+            <Ionicons name="diamond" size={32} color="#FFFFFF" />
+          </View>
+
+          <Text className="mb-2 text-center text-2xl font-bold text-text-primary">
+            {headline}
+          </Text>
+          <Text className="text-center text-sm text-text-secondary">
+            {config.subtitle}
+          </Text>
+
+          {/* Social Proof */}
+          <View className="mt-4 flex-row items-center gap-2 rounded-full px-4 py-2" style={{ backgroundColor: '#10B98115' }}>
+            <Ionicons name="people" size={16} color="#10B981" />
+            <Text className="text-xs font-semibold" style={{ color: '#10B981' }}>
+              {config.social_proof}
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Urgency Banner ────────────────────────────────────── */}
+        {showUrgency && (
+          <View
+            className="mx-6 mt-4 flex-row items-center gap-2 rounded-xl px-4 py-3"
+            style={{ backgroundColor: '#F59E0B15' }}
+          >
+            <Ionicons name="time-outline" size={18} color="#F59E0B" />
+            <Text className="flex-1 text-xs font-semibold" style={{ color: '#D97706' }}>
+              {config.urgency_text}
+            </Text>
+            <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: '#F59E0B20' }}>
+              <Text className="text-[10px] font-bold" style={{ color: '#D97706' }}>
+                {config.urgency_badge}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* ── Features ──────────────────────────────────────────── */}
+        <View className="px-6 py-6">
+          {config.features.map((feature, i) => (
+            <View key={i} className="mb-3.5 flex-row items-center gap-3">
+              <View
+                className="h-8 w-8 items-center justify-center rounded-full"
+                style={{ backgroundColor: '#2563EB15' }}
+              >
+                <Ionicons name={feature.icon as any} size={16} color={primaryColor} />
+              </View>
+              <Text className="flex-1 text-sm text-text-primary">{feature.text}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* ── Plans ─────────────────────────────────────────────── */}
+        <View className="px-6">
+          {[...config.plans]
+            .sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0))
+            .map(renderPlanCard)}
+
+          {/* Trial badge */}
+          <View className="mb-4 flex-row items-center gap-2 rounded-xl px-4 py-3" style={{ backgroundColor: '#F59E0B15' }}>
+            <Ionicons name="gift-outline" size={18} color="#D97706" />
+            <Text className="flex-1 text-xs" style={{ color: '#D97706' }}>
+              {config.trial_notice}
+            </Text>
+          </View>
+
+          {/* Subscribe Button */}
+          <Pressable
+            className="mb-1 items-center rounded-2xl bg-blue-600 py-4 active:opacity-90"
+            onPress={handleSubscribe}
+            disabled={purchasing}
+            style={{ opacity: purchasing ? 0.6 : 1 }}
+          >
+            <Text className="text-base font-semibold text-white">
+              {purchasing ? config.cta_processing : config.cta_primary}
+            </Text>
+          </Pressable>
+
+          {/* Subtext */}
+          <Text className="mb-4 text-center text-xs text-text-muted">
+            {config.cta_subtext}
+          </Text>
+
+          {/* Restore */}
+          <Pressable className="mb-2 items-center py-2" onPress={handleRestorePurchases}>
+            <Text className="text-sm text-text-muted">{config.restore_text}</Text>
+          </Pressable>
+
+          {/* Fine print */}
+          <Text className="text-center text-[10px] text-text-muted">
+            {t('paywall.finePrint')}
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 }

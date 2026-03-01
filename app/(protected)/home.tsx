@@ -10,7 +10,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import api from '../../lib/api';
@@ -92,7 +91,7 @@ export default function HomeScreen() {
       if (isAuthenticated) {
         const [entriesRes, streakRes] = await Promise.all([
           api.get('/journals?offset=0&limit=5'),
-          api.get('/streak').catch(() => ({ data: null })),
+          api.get('/journals/streak').catch(() => ({ data: null })),
         ]);
 
         const entries: DisplayEntry[] = (entriesRes.data.entries || []).map(
@@ -317,34 +316,20 @@ export default function HomeScreen() {
         <View className="px-6 mt-4">
           <Pressable
             onPress={handleNewEntry}
-            className="active:scale-[0.97]"
+            className="flex-row items-center bg-surface-elevated border border-border rounded-2xl p-4 active:scale-[0.97]"
           >
-            <LinearGradient
-              colors={['#2563EB', '#1D4ED8'] as const}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              className="rounded-2xl p-5 flex-row items-center"
-              style={{
-                shadowColor: '#2563EB',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 12,
-                elevation: 8,
-              }}
-            >
-              <View className="bg-white/20 w-12 h-12 rounded-xl items-center justify-center mr-4">
-                <Ionicons name="add" size={28} color="#FFFFFF" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-white text-lg font-bold">
-                  New Entry
-                </Text>
-                <Text className="text-white/80 text-sm mt-0.5">
-                  How are you feeling today?
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={22} color="rgba(255,255,255,0.7)" />
-            </LinearGradient>
+            <View className="w-11 h-11 rounded-xl bg-blue-100 dark:bg-blue-900/40 items-center justify-center mr-3">
+              <Ionicons name="add" size={24} color="#2563EB" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-text-primary">
+                New Entry
+              </Text>
+              <Text className="text-sm text-text-secondary mt-0.5">
+                How are you feeling today?
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={isDark ? '#475569' : '#D1D5DB'} />
           </Pressable>
         </View>
 

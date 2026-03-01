@@ -5,7 +5,6 @@ import {
   Modal,
   Pressable,
   ActivityIndicator,
-  StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,7 +32,6 @@ export default function LanguageSwitcher({
   const [supportedLangs, setSupportedLangs] = useState<SupportedLanguage[]>([]);
   const [changing, setChanging] = useState(false);
 
-  // Load current language and supported languages on mount
   useEffect(() => {
     if (visible) {
       setCurrentLang(getCurrentLanguage());
@@ -41,7 +39,6 @@ export default function LanguageSwitcher({
     }
   }, [visible]);
 
-  // Handle language change
   const handleLanguageSelect = async (langCode: string) => {
     if (langCode === currentLang || changing) {
       return;
@@ -54,13 +51,10 @@ export default function LanguageSwitcher({
       await changeLanguage(langCode);
       hapticSuccess();
 
-      // For RTL languages, the app will reload automatically
-      // For LTR languages, just close the modal
       const langData = supportedLangs.find((l) => l.code === langCode);
       if (!langData?.isRTL) {
         onClose();
       }
-      // If RTL, app will reload - no need to close
     } catch (error) {
       console.error('Failed to change language:', error);
       setChanging(false);
@@ -76,12 +70,12 @@ export default function LanguageSwitcher({
     >
       <View className="flex-1 bg-black/80 justify-end">
         <View
-          className="bg-dark-card rounded-t-3xl border-t border-dark-border"
+          className="bg-surface-elevated rounded-t-3xl border-t border-border"
           style={{ paddingBottom: insets.bottom + 20 }}
         >
           {/* Modal Header */}
-          <View className="flex-row items-center justify-between px-5 py-4 border-b border-dark-border">
-            <Text className="text-white text-lg font-bold">
+          <View className="flex-row items-center justify-between px-5 py-4 border-b border-border">
+            <Text className="text-text-primary text-lg font-bold">
               {t('settings.language')}
             </Text>
             <Pressable
@@ -89,7 +83,7 @@ export default function LanguageSwitcher({
                 hapticLight();
                 onClose();
               }}
-              className="w-8 h-8 bg-dark-border rounded-full items-center justify-center active:opacity-70"
+              className="w-8 h-8 bg-primary-100 dark:bg-primary-900 rounded-full items-center justify-center active:opacity-70"
             >
               <Ionicons name="close" size={18} color="#9CA3AF" />
             </Pressable>
@@ -99,8 +93,8 @@ export default function LanguageSwitcher({
           <View className="px-5 pt-2 max-h-[70vh]">
             {changing ? (
               <View className="py-8 items-center">
-                <ActivityIndicator color="#00FF41" />
-                <Text className="text-gray-400 font-mono text-xs mt-3">
+                <ActivityIndicator color="#2563EB" />
+                <Text className="text-text-muted text-xs mt-3">
                   {t('common.loading')}
                 </Text>
               </View>
@@ -112,45 +106,45 @@ export default function LanguageSwitcher({
                   disabled={changing}
                   className={`flex-row items-center py-3.5 active:opacity-70 ${
                     index < supportedLangs.length - 1
-                      ? 'border-b border-dark-border'
+                      ? 'border-b border-border'
                       : ''
                   }`}
                 >
                   <View className="flex-1">
-                    <Text className="text-white text-sm font-medium">
+                    <Text className="text-text-primary text-sm font-medium">
                       {lang.nativeName}
                     </Text>
-                    <Text className="text-gray-500 text-xs mt-0.5">
+                    <Text className="text-text-secondary text-xs mt-0.5">
                       {lang.name}
                     </Text>
                   </View>
 
                   {lang.isRTL && (
-                    <View className="bg-terminal-green/10 rounded-lg px-2 py-1 mr-2">
-                      <Text className="text-terminal-green font-mono text-[10px]">
+                    <View className="bg-primary-100 dark:bg-primary-900 rounded-lg px-2 py-1 mr-2">
+                      <Text className="text-primary text-[10px] font-semibold">
                         RTL
                       </Text>
                     </View>
                   )}
 
                   {currentLang === lang.code && !changing && (
-                    <Ionicons name="checkmark" size={20} color="#00FF41" />
+                    <Ionicons name="checkmark" size={20} color="#2563EB" />
                   )}
                 </Pressable>
               ))
             )}
 
             {/* Info Footer */}
-            <View className="mt-4 mb-2 bg-terminal-green/5 rounded-xl p-3 border border-terminal-green/10">
+            <View className="mt-4 mb-2 bg-primary-50 dark:bg-primary-900/20 rounded-xl p-3 border border-primary-200 dark:border-primary-800">
               <View className="flex-row items-start">
                 <Ionicons
                   name="information-circle"
                   size={16}
-                  color="#00FF41"
+                  color="#2563EB"
                   style={{ marginTop: 2, marginRight: 8 }}
                 />
                 <View className="flex-1">
-                  <Text className="text-gray-400 text-xs">
+                  <Text className="text-text-secondary text-xs">
                     For Arabic (RTL), the app will reload to apply layout
                     changes.
                   </Text>

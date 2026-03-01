@@ -1,17 +1,16 @@
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ONBOARDING_KEY = 'onboarding_complete';
+const ONBOARDING_KEY = '@daiyly_onboarding_complete';
 
 export async function hasSeenOnboarding(): Promise<boolean> {
   try {
-    const value = await SecureStore.getItemAsync(ONBOARDING_KEY);
+    const value = await AsyncStorage.getItem(ONBOARDING_KEY);
     return value === 'true';
-  } catch (error) {
-    // If there's an error reading, assume onboarding is not seen
+  } catch {
     return false;
   }
 }
 
 export async function setOnboardingSeen(): Promise<void> {
-  await SecureStore.setItemAsync(ONBOARDING_KEY, 'true');
+  await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
 }

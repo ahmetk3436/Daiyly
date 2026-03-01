@@ -3,7 +3,7 @@
 All user flows with Mermaid diagrams, API endpoints, request/response shapes, guest vs authenticated differences, offline behavior, and library internals.
 
 **Screens**: 17 files total (including 2 layout files)
-**Last updated**: 2026-02-25 (5 production features + 3 risk hardening + 3 logic gap + 3 audit trap fixes)
+**Last updated**: 2026-02-25 (full audit: streak endpoints, auth layout redirect, providers chain, dark mode architecture, all API paths verified)
 
 ---
 
@@ -40,6 +40,10 @@ All user flows with Mermaid diagrams, API endpoints, request/response shapes, gu
 - [Subscription Cancel Warning](#subscription-cancel-warning)
 - [Apple Token Revocation](#apple-token-revocation-on-account-delete)
 - [Notification OS Permission Sync](#os-permission-sync)
+- [Onboarding Flow](#onboarding-flow)
+- [Internationalization (i18n)](#internationalization-i18n)
+- [Components Reference](#components-reference)
+- [Types Reference](#types-reference)
 
 ---
 
@@ -82,10 +86,10 @@ graph TD
 
 | # | File | Purpose |
 |---|------|---------|
-| 1 | `app/_layout.tsx` | Root Layout — providers, Sentry, i18n, API config |
+| 1 | `app/_layout.tsx` | Root Layout — providers, i18n, API config, force update |
 | 2 | `app/index.tsx` | Decision Tree — onboarding/auth/guest routing |
 | 3 | `app/onboarding.tsx` | 3-page horizontal onboarding carousel |
-| 4 | `app/(auth)/_layout.tsx` | Stack wrapper for auth screens |
+| 4 | `app/(auth)/_layout.tsx` | Auth guard — redirects to home if already authenticated/guest |
 | 5 | `app/(auth)/login.tsx` | Email/password login + Apple Sign-In + guest |
 | 6 | `app/(auth)/register.tsx` | Email/password registration |
 | 7 | `app/(protected)/_layout.tsx` | Tab Layout + Biometric lock + SubscriptionProvider |
@@ -106,21 +110,24 @@ graph TD
 
 ### `app/_layout.tsx`
 
-Providers chain: `SafeAreaProvider` > `ThemeProvider` > `AuthProvider`
+Providers chain: `ErrorBoundary` > `SafeAreaProvider` > `ThemeProvider` > `AuthProvider`
 
 On mount (async init):
 1. `await refreshApiBaseUrl()` — `GET /api/config` for remote URL override + captures `min_app_version`
 2. `initLanguage()` — i18n initialization from stored language preference
-3. Force update check — compares app version against `min_app_version` from config, shows `ForceUpdateModal` if outdated (6-hour throttle)
+3. Force update check — compares app version against `min_app_version` from config, checks `wasRecentlyDismissed()`, shows `ForceUpdateModal` if outdated (6-hour throttle)
 
 Components rendered:
-- `<ThemedApp />` — wraps `<Slot />` with StatusBar
-- `<ForceUpdateModal visible={forceUpdate} />` — full-screen non-dismissible modal (only when version is outdated)
+- `<ThemedApp />` — wraps `<Slot />` with StatusBar (uses `isDark` from ThemeContext)
+- `<ForceUpdateModal visible={forceUpdate} onDismiss={() => setForceUpdate(false)} />` — full-screen modal (outside AuthProvider, renders even before auth loads)
 
-Stack screens:
-- `(auth)` — `slide_from_right` animation
-- `(protected)` — `fade` animation
-- `onboarding` — standalone
+Routing: Uses `<Slot />` (not `<Stack />`). Child routes (`index.tsx`, `onboarding.tsx`, `(auth)/*`, `(protected)/*`) are rendered as flat slots. Navigation animations are handled by each group's own layout.
+
+### `app/(auth)/_layout.tsx`
+
+Auth-aware redirect guard. When `isAuthenticated` or `isGuest` becomes true (after login/register/Apple/guest), immediately returns `<Redirect href="/(protected)/home" />`. Otherwise renders `<Slot />` for login/register screens.
+
+This is the primary mechanism that navigates users to the home screen after successful authentication — the auth screens themselves do NOT call `router.replace()`.
 
 ### `app/index.tsx`
 
@@ -129,11 +136,13 @@ graph TD
     A["index.tsx"] --> B{isLoading OR !onboardingChecked?}
     B -->|Yes| C[ActivityIndicator]
     B -->|No| D{!onboardingSeen?}
-    D -->|Yes| E["router.replace('/onboarding')"]
+    D -->|Yes| E["Redirect href='/onboarding'"]
     D -->|No| F{"isAuthenticated OR isGuest?"}
-    F -->|Yes| G["router.replace('/(protected)/home')"]
-    F -->|No| H["router.replace('/(auth)/login')"]
+    F -->|Yes| G["Redirect href='/(protected)/home'"]
+    F -->|No| H["Redirect href='/(auth)/login'"]
 ```
+
+Uses `<Redirect>` component (not `router.replace`). This only fires on initial load or when navigating back to `/`.
 
 State: `onboardingChecked` (bool), `onboardingSeen` (bool from AsyncStorage)
 
@@ -179,7 +188,7 @@ sequenceDiagram
     Ctx->>SS: setTokens(access, refresh)
     Ctx->>Ctx: setUser(data.user), setIsGuest(false)
     Ctx->>Ctx: migrateGuestEntries() (fire-and-forget)
-    Note over App: index.tsx redirect → /(protected)/home
+    Note over App: (auth)/_layout.tsx redirect → /(protected)/home
 
     Note over U,App: Apple Sign-In
     U->>App: Tap Apple button
@@ -217,7 +226,7 @@ sequenceDiagram
     Ctx->>SS: setTokens(access, refresh)
     Ctx->>Ctx: setUser(data.user), setIsGuest(false)
     Ctx->>Ctx: migrateGuestEntries() (fire-and-forget)
-    Note over App: index.tsx redirect → /(protected)/home
+    Note over App: (auth)/_layout.tsx redirect → /(protected)/home
 ```
 
 **State**: `email`, `password`, `confirmPassword`, `error`, `isLoading`
@@ -374,7 +383,7 @@ sequenceDiagram
             Home->>API: GET /api/p/journals?offset=0&limit=5
             API-->>Home: {entries: JournalEntry[], total}
         and
-            Home->>API: GET /api/p/streak
+            Home->>API: GET /api/p/journals/streak
             API-->>Home: JournalStreak
         end
         Home->>Cache: cacheSet('home_entries', entries)
@@ -392,7 +401,7 @@ sequenceDiagram
 
     Home->>Home: Render greeting, mood summary, recent entries, streak badge
 
-    U->>Home: Tap "New Entry" CTA (gradient button)
+    U->>Home: Tap "New Entry" CTA (bordered card)
     Home->>Home: router.push('/(protected)/new-entry')
 
     U->>Home: Tap quick mood emoji
@@ -447,7 +456,7 @@ sequenceDiagram
 }
 ```
 
-### GET /api/p/streak — Response
+### GET /api/p/journals/streak — Response
 
 ```json
 {
@@ -467,7 +476,7 @@ sequenceDiagram
 | Greeting + emoji | Always | Time-based: morning/afternoon/evening/night |
 | Streak badge | `currentStreak > 0` | Tap → insights |
 | Today's mood card | Today has entry | Tap → entry detail |
-| "New Entry" gradient CTA | Always | → new-entry |
+| "New Entry" bordered CTA | Always | → new-entry (bg-surface-elevated, border-border) |
 | Quick mood emojis | Always | Horizontal scroll, 8 emojis → new-entry with quickMood |
 | "Share Your Mood" card | `entries.length > 0` | → sharing |
 | Guest "Create Account" | `isGuest` | → register |
@@ -806,7 +815,7 @@ sequenceDiagram
             Ins->>API: GET /api/p/journals/insights
             API-->>Ins: {data: WeeklyInsights}
         and
-            Ins->>API: GET /api/p/streak
+            Ins->>API: GET /api/p/journals/streak
             API-->>Ins: JournalStreak
         end
         Ins->>Cache: cacheSet('insights_data', insights)
@@ -1049,7 +1058,7 @@ sequenceDiagram
     end
 
     alt Authenticated
-        Sh->>API: GET /api/p/streak
+        Sh->>API: GET /api/p/journals/streak
         Sh->>API: GET /api/p/journals/insights
     end
 
@@ -1208,7 +1217,7 @@ sequenceDiagram
 
 **Guest**: No "Delete Account" section. Profile shows "Guest User / No account" with "Create Account" button. No "Sign Out" becomes available.
 
-**Settings persistence**: `@daiyly_settings` key in AsyncStorage, JSON object with `biometricEnabled` and `notificationsEnabled`.
+**Settings persistence**: `@daiyly_settings` key in AsyncStorage, JSON object with `biometricEnabled`, `notificationsEnabled`, and `themeMode`. This key is shared with `ThemeContext.tsx` which reads/writes `themeMode`.
 
 ---
 
@@ -1224,7 +1233,7 @@ sequenceDiagram
 
     alt Authenticated
         par Promise.allSettled
-            NC->>API: GET /api/p/streak
+            NC->>API: GET /api/p/journals/streak
             API-->>NC: JournalStreak
         and
             NC->>API: GET /api/p/journals/insights
@@ -1323,6 +1332,11 @@ graph TD
 **Safe default on corrupted settings**: If `@daiyly_settings` JSON is corrupted (parse throws), the app assumes biometric was enabled and attempts authentication. On auth failure, stays locked with retry button. This prevents bypass on corrupted data.
 
 **Lock screen UI**: Lock icon, "Daiyly is Locked" title, "Authenticate to access your journal" subtitle, fingerprint "Unlock" button.
+
+**iOS Face ID requirement**: `expo-local-authentication` must be listed in `app.json` plugins with `faceIDPermission` string. Without this, `NSFaceIDUsageDescription` is never added to Info.plist and iOS silently denies Face ID permission. Current config:
+```json
+["expo-local-authentication", {"faceIDPermission": "Allow Daiyly to use Face ID to unlock your journal."}]
+```
 
 ---
 
@@ -1459,8 +1473,8 @@ Timeout:              15000ms
 | `POST` | `/auth/apple` | `{identity_token, authorization_code, full_name?, email?}` | `{access_token, refresh_token, user: {id, email}}` |
 | `POST` | `/auth/logout` | `{refresh_token}` | — |
 | `POST` | `/auth/refresh` | `{refresh_token}` | `{access_token, refresh_token}` |
-| `DELETE` | `/auth/account` | `{password}` | — |
-| `GET` | `/config` | — | `{api_base_url?: string}` |
+| `DELETE` | `/auth/account` | `{password, authorization_code?}` | — |
+| `GET` | `/config` | — | `{api_base_url?: string, min_app_version?: string}` |
 
 ### Journal Endpoints (`/api/p`)
 
@@ -1474,7 +1488,7 @@ Timeout:              15000ms
 | `GET` | `/journals/search` | `?q=string&limit=N&offset=N` | `{entries: JournalEntry[], total, hasMore}` |
 | `GET` | `/journals/insights` | — | `{data: WeeklyInsights}` |
 | `GET` | `/journals/weekly-report` | — | `WeeklyReport` (premium, AI) |
-| `GET` | `/streak` | — | `JournalStreak` |
+| `GET` | `/journals/streak` | — | `JournalStreak` |
 
 ---
 
@@ -1586,6 +1600,63 @@ Timeout:              15000ms
 }
 ```
 
+### User (`types/auth.ts`)
+
+```typescript
+{
+  id: string;
+  email: string;
+  is_apple_user?: boolean;  // true if registered via Apple Sign-In
+}
+```
+
+### AuthResponse (`types/auth.ts`)
+
+```typescript
+{
+  access_token: string;
+  refresh_token: string;
+  user: User;
+}
+```
+
+### JournalListResponse (`types/journal.ts`)
+
+```typescript
+{
+  entries: JournalEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+```
+
+### MoodOption (`types/journal.ts`)
+
+```typescript
+{
+  emoji: string;    // e.g. "😊"
+  label: string;    // e.g. "Happy"
+  color: string;    // hex e.g. "#22c55e"
+  value: string;    // e.g. "happy"
+}
+```
+
+### MOOD_OPTIONS constant (`types/journal.ts`)
+
+8 mood options used throughout the app:
+
+| Emoji | Label | Color | Value |
+|-------|-------|-------|-------|
+| 😊 | Happy | #22c55e | happy |
+| 😌 | Calm | #06b6d4 | calm |
+| 😔 | Sad | #6366f1 | sad |
+| 😤 | Angry | #ef4444 | angry |
+| 😰 | Anxious | #f59e0b | anxious |
+| 😴 | Tired | #8b5cf6 | tired |
+| 🥳 | Excited | #ec4899 | excited |
+| 😐 | Neutral | #64748b | neutral |
+
 ---
 
 ## Guest vs Authenticated Matrix
@@ -1600,7 +1671,7 @@ Timeout:              15000ms
 | History | All from AsyncStorage, no pagination | Paginated from API + cache |
 | Insights | `computeGuestInsights()` locally | API: `/journals/insights` + cache |
 | AI weekly report | Not available | Premium: `/journals/weekly-report` |
-| Streak | Always 0 | API: `/streak` |
+| Streak | Always 0 | API: `/journals/streak` |
 | Search | Client-side string filter | API: `/journals/search` (offline: cache fallback) |
 | Sharing | Uses local entries, streak=0 | Full API data |
 | Export | Blocked by `requirePro()` | Premium: paginated API export (resilient) |
@@ -1622,7 +1693,7 @@ Timeout:              15000ms
 |-----|------|---------|--------|
 | `guest_entries` | `GuestEntry[]` | Guest journal entries | `lib/guest.ts` |
 | `guest_uses_count` | `string` (number) | Guest entry count (max 3) | `lib/guest.ts` |
-| `@daiyly_settings` | `{biometricEnabled, notificationsEnabled}` | App settings | `settings.tsx` |
+| `@daiyly_settings` | `{biometricEnabled, notificationsEnabled, themeMode}` | App settings (shared by settings.tsx + ThemeContext.tsx) | `settings.tsx`, `ThemeContext.tsx` |
 | `@daiyly_notification_prefs` | `{dailyReminder, streakAlerts, weeklyReports}` | Notification prefs | `notification-center.tsx` |
 | `@daiyly_draft` | `DraftData` | New entry draft auto-save | `new-entry.tsx` |
 | `@daiyly_cache_home_entries` | `CachedData<DisplayEntry[]>` | Home entries cache | `home.tsx` |
@@ -1634,7 +1705,16 @@ Timeout:              15000ms
 | `@daiyly_last_version_check` | `string` (timestamp) | Last force-update version check | `lib/version.ts` |
 | `@daiyly_force_update_dismiss` | `string` (timestamp) | Temporary 1-hour force update dismiss | `ForceUpdateModal.tsx` |
 | `@daiyly_review_state` | `ReviewState` | Review prompt state (count, entries, last prompted) | `lib/review.ts` |
-| Onboarding seen key | `string` | Managed by `lib/onboarding.ts` | `onboarding.tsx` |
+| `@daiyly_language` | `string` | Selected language code (e.g. "en", "tr", "ar") | `lib/i18n.ts` |
+
+| `@daiyly_onboarding_complete` | `"true"` | Whether user has seen onboarding | `lib/onboarding.ts` |
+
+**SecureStore Keys** (encrypted, not AsyncStorage):
+
+| Key | Type | Purpose | Set By |
+|-----|------|---------|--------|
+| `access_token` | `string` | JWT access token | `lib/storage.ts` |
+| `refresh_token` | `string` | JWT refresh token | `lib/storage.ts` |
 
 ---
 
@@ -1694,6 +1774,26 @@ Timeout:              15000ms
 - `trackEntrySaved()` — increments entry counter, prompts at 5th/20th/50th entry
 - Trigger types: `entry_saved` (from new-entry.tsx), `streak_milestone` (from home.tsx at 7/14/30/60/100)
 
+### `lib/i18n.ts`
+- Initializes `i18next` + `react-i18next` with 10 languages
+- Supported: en, tr, de, fr, es, it, pt, ru, ar, zh
+- `initLanguage()` — called by `_layout.tsx` on mount, reads saved language from AsyncStorage (`@daiyly_language`), falls back to device locale, then to English
+- `changeLanguage(code)` — saves to AsyncStorage, changes i18n language, triggers `Updates.reloadAsync()` if switching to/from RTL (Arabic)
+- `getCurrentLanguage()` — returns current i18n language code
+- `getSupportedLanguages()` — returns `SupportedLanguage[]` with code, name, nativeName, isRTL
+- `isRTL()` — returns `I18nManager.isRTL`
+- Auto-initializes on module import (singleton promise pattern)
+
+### `lib/onboarding.ts`
+- Uses AsyncStorage — key: `@daiyly_onboarding_complete`
+- `hasSeenOnboarding()` — reads AsyncStorage, returns boolean
+- `setOnboardingSeen()` — writes `"true"` to AsyncStorage
+- Called by `onboarding.tsx` (set) and `index.tsx` (check)
+
+### `lib/cn.ts`
+- `cn(...inputs)` — utility combining `clsx` + `tailwind-merge`
+- Used by `Button.tsx` and `Input.tsx` for conditional className merging
+
 ### `contexts/AuthContext.tsx`
 - Provides: `isAuthenticated`, `isGuest`, `isLoading`, `user`
 - Methods: `login()`, `register()`, `loginWithApple()`, `logout()`, `deleteAccount()`, `enterGuestMode()`
@@ -1701,13 +1801,33 @@ Timeout:              15000ms
 - Calls `migrateGuestEntries()` after login/register/apple
 
 ### `contexts/ThemeContext.tsx`
-- Provides: `isDark`, `themeMode`, `setThemeMode()`
+- Provides: `isDark`, `themeMode`, `setThemeMode()`, `colorScheme`
 - Modes: `system`, `light`, `dark`
-- Uses CSS variables in `global.css` for NativeWind dark mode
+- Uses `useColorScheme()` from `nativewind` (NOT `react-native`) to drive the NativeWind style engine
+- `setColorScheme(mode)` updates `Appearance.setColorScheme()` which triggers `@media (prefers-color-scheme: dark)` in CSS
+- Persists preference to `@daiyly_settings` in AsyncStorage
+- Returns `null` until loaded (prevents flash of wrong theme)
+
+### Dark Mode Architecture
+
+**How it works (NativeWind v4)**:
+1. `ThemeContext` calls `setColorScheme('dark' | 'light' | 'system')` from nativewind
+2. NativeWind calls `Appearance.setColorScheme()` under the hood
+3. This triggers `@media (prefers-color-scheme: dark)` in `global.css`, swapping CSS variable values
+4. All components using semantic tokens (`bg-background`, `text-text-primary`, etc.) update instantly
+
+**global.css**: Uses `@media (prefers-color-scheme: dark)` (NOT `.dark {}` — NativeWind bug #702). CSS variables use RGB triplets (`15 23 42`) for `<alpha-value>` opacity support.
+
+**tailwind.config.js**: Colors defined as `rgb(var(--color-xxx) / <alpha-value>)`. Hardcoded hex colors (primary `#2563EB`, mood emojis, etc.) are fine for non-theme colors.
+
+**Key constraint**: `darkMode: 'class'` in tailwind.config.js stays — it enables `dark:` utility class prefixes. The actual toggling happens via `@media` query + `Appearance.setColorScheme()`.
 
 ### `contexts/SubscriptionContext.tsx`
-- Provides: `isSubscribed`, `checkSubscription()`, `handleRestore()`
+- Provides: `isSubscribed`, `isLoading`, `offerings`, `checkSubscription()`, `handlePurchase(pkg)`, `handleRestore()`, `refreshOfferings()`
 - Wraps RevenueCat entitlement check ("premium")
+- `offerings` — cached RevenueCat offerings (used by paywall.tsx to display packages)
+- `handlePurchase(pkg)` — executes RevenueCat purchase flow for a specific package
+- `refreshOfferings()` — re-fetches offerings from RevenueCat
 
 ---
 
@@ -1887,6 +2007,260 @@ The warning is a 3-button Alert with "Manage Subscription" (opens store), "Conti
 - For email users: standard password modal flow, no Apple revocation needed
 - `User.is_apple_user` is set from JWT claims (`payload.is_apple_user`) and from API responses (`data.user.is_apple_user`)
 - Backend JWT includes `is_apple_user: true/false` based on `user.AuthProvider == "apple"`
+
+---
+
+## Onboarding Flow
+
+**File**: `app/onboarding.tsx`
+
+### Trigger
+
+Shown on first app launch when `hasSeenOnboarding()` returns false (reads `@daiyly_onboarding_complete` from AsyncStorage).
+
+### Flow
+
+```mermaid
+graph TD
+    A[App Launch] --> B{hasSeenOnboarding?}
+    B -->|Yes| C[Route to auth or protected]
+    B -->|No| D[Show Onboarding Carousel]
+    D --> E[Page 0: Welcome]
+    E --> F[Page 1: Features]
+    F --> G[Page 2: Get Started]
+    G --> H{User taps...}
+    H -->|Get Started| I[router.replace auth/register]
+    H -->|Try Free| J[enterGuestMode + setOnboardingSeen]
+    J --> K[router.replace protected/home]
+    D -->|Skip on pages 0-1| L[setOnboardingSeen]
+    L --> M[router.replace auth/login]
+    I --> L
+```
+
+### Implementation
+
+- Horizontal `ScrollView` with `pagingEnabled` (3 pages)
+- Each page: emoji icon, title, description
+- "Skip" button visible on pages 0–1 → goes to login
+- "Get Started" button on page 2 → goes to register
+- "Try Free" button on page 2 → enters guest mode
+- `setOnboardingSeen()` writes `"true"` to AsyncStorage key `@daiyly_onboarding_complete` (never shown again)
+
+---
+
+## Internationalization (i18n)
+
+**Files**: `lib/i18n.ts`, `components/LanguageSwitcher.tsx`, `locales/*.json`
+
+### Supported Languages (10)
+
+| Code | Language | Native Name | RTL |
+|------|----------|-------------|-----|
+| en | English | English | No |
+| tr | Turkish | Türkçe | No |
+| de | German | Deutsch | No |
+| fr | French | Français | No |
+| es | Spanish | Español | No |
+| it | Italian | Italiano | No |
+| pt | Portuguese | Português | No |
+| ru | Russian | Русский | No |
+| ar | Arabic | العربية | Yes |
+| zh | Chinese | 中文 | No |
+
+### Flow
+
+```mermaid
+graph TD
+    A[App Launch] --> B[initLanguage]
+    B --> C{Saved language in AsyncStorage?}
+    C -->|Yes| D[Use saved language]
+    C -->|No| E[Detect device language]
+    E --> F{Device language supported?}
+    F -->|Yes| D2[Use device language]
+    F -->|No| G[Fallback to English]
+    D --> H[Initialize i18next]
+    D2 --> H
+    G --> H
+    H --> I{Is RTL language?}
+    I -->|Yes| J[I18nManager.forceRTL true]
+    I -->|No| K[Continue normally]
+```
+
+### Language Change Flow
+
+1. User opens Settings → taps Language
+2. `LanguageSwitcher` modal opens (bottom sheet style)
+3. User selects language → `changeLanguage(code)` called
+4. Language saved to AsyncStorage (`@daiyly_language`)
+5. `i18n.changeLanguage()` updates all `t()` calls immediately
+6. If switching to/from RTL (Arabic): `I18nManager.forceRTL()` + `Updates.reloadAsync()` (full app reload required for RTL layout)
+
+### AsyncStorage Key
+
+`@daiyly_language` — stores the selected language code (e.g. `"en"`, `"ar"`)
+
+### LanguageSwitcher Component
+
+- Bottom-sheet modal with language list
+- Shows native name + English name for each language
+- RTL badge for Arabic (blue `bg-primary-100` badge)
+- Checkmark on currently selected language (blue `#2563EB`)
+- Loading spinner during language change
+- Uses Daiyly's design tokens: `bg-surface-elevated`, `border-border`, `text-text-primary`, `text-primary`
+
+---
+
+## Components Reference
+
+### `components/ErrorBoundary.tsx`
+
+React class component wrapping the entire app tree (in `_layout.tsx`).
+
+- Catches JavaScript errors in child component tree
+- Reports to `Sentry.captureException()` with component stack
+- Shows fallback UI: 😵 emoji + "Something went wrong" + "Try Again" button
+- "Try Again" resets `hasError` state (re-renders children)
+- Uses `useColorScheme()` for dark mode support in fallback screen
+- Uses inline styles (not NativeWind) — class components can't use hooks directly, so a functional `ErrorFallback` wrapper handles theming
+
+### `components/ForceUpdateModal.tsx`
+
+Documented in [Force Update Mechanism](#force-update-mechanism).
+
+### `components/LanguageSwitcher.tsx`
+
+Documented in [Internationalization](#internationalization-i18n).
+
+### `components/ui/Button.tsx`
+
+Reusable button with variants and sizes.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `title` | `string` | required | Button label |
+| `variant` | `'primary' \| 'secondary' \| 'outline' \| 'destructive'` | `'primary'` | Visual style |
+| `size` | `'sm' \| 'md' \| 'lg'` | `'md'` | Size preset |
+| `isLoading` | `boolean` | `false` | Shows ActivityIndicator, disables press |
+
+Uses `cn()` from `lib/cn.ts` for conditional className merging. Used in login.tsx, register.tsx, settings.tsx.
+
+### `components/ui/Input.tsx`
+
+Text input with label, error display, and focus ring.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `label` | `string?` | — | Label text above input |
+| `error` | `string?` | — | Error message below input (red) |
+
+Uses `cn()` for conditional styling, `useTheme()` for dark mode placeholder color. Focus state toggles blue border. Used in login.tsx, register.tsx, settings.tsx.
+
+### `components/ui/Modal.tsx`
+
+Generic modal wrapper with backdrop dismiss.
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `visible` | `boolean` | Show/hide modal |
+| `onClose` | `() => void` | Called on backdrop press or Android back |
+| `title` | `string?` | Optional title at top |
+| `children` | `ReactNode` | Modal content |
+
+Transparent backdrop (black/50), centered card with rounded corners. Inner `Pressable` with `onPress={() => {}}` prevents backdrop dismiss when tapping content. Used in settings.tsx (delete account password modal).
+
+### `components/ui/AppleSignInButton.tsx`
+
+Apple Sign-In button with platform-specific rendering.
+
+- **iOS**: Native `AppleAuthenticationButton` from `expo-apple-authentication`
+- **Android**: Custom black button with Apple logo (Ionicons) as fallback
+- Calls `loginWithApple()` from AuthContext with `identityToken`, `authorizationCode`, `fullName`, `email`
+- Loading state support (external via `isLoading` prop or internal)
+- Error callback via `onError` prop
+- User cancel (`ERR_REQUEST_CANCELED`) silently ignored
+- Haptic feedback: `hapticLight()` on press, `hapticError()` on failure
+
+### `components/ui/CTABanner.tsx`
+
+Gradient banner for upsell/achievement prompts.
+
+**Two variants exported:**
+
+1. `CTABanner` (default) — full gradient banner with icon, title, description, button, dismiss
+   - Types: `upgrade` (amber), `feature` (purple-pink), `achievement` (green)
+   - Uses `expo-linear-gradient` for gradient background
+   - Optional dismiss button (`dismissible` prop)
+
+2. `MinimalCTABanner` — flat blue banner with arrow
+   - Simpler design, no gradient
+   - Used for inline contextual prompts
+
+Used in insights.tsx for premium upgrade banners.
+
+### `components/ui/MoodCard.tsx`
+
+**Three exports:**
+
+1. `MoodCard` (default) — full mood display card with gradient background
+   - Gradient colors based on mood label (5 tiers: Feeling Low → Amazing!)
+   - Displays: emoji, mood score badge, label, formatted date, streak badge, share button, username
+   - Uses `expo-linear-gradient`
+   - `getMoodLabel(score)` helper: maps 0-100 score to human label
+
+2. `ShareableMoodCard` — `forwardRef` card optimized for ViewShot capture
+   - Fixed 320x400 dimensions for screenshot export
+   - Includes decorative circles, branding, content excerpt
+   - `collapsable={false}` for Android ViewShot compatibility
+
+3. `MoodBentoGrid` — grid of emoji mood selectors
+   - Wrap layout with 16x16 mood tiles
+   - Used in mood selection flows
+
+### `components/ui/ShareableResult.tsx`
+
+**Two exports:**
+
+1. `ShareableResult` (default) — Instagram Story optimized shareable card (9:16 aspect ratio)
+   - ViewShot capture at 1080x1920 resolution
+   - Gradient background with app branding
+   - Built-in share flow: capture → copy to cache → `Sharing.shareAsync()`
+   - Haptic feedback on share
+
+2. `MinimalShareCard` — simple tap-to-share card
+   - Plain background, centered value display
+   - Same capture+share flow as ShareableResult
+
+Both use `react-native-view-shot` + `expo-sharing` + `expo-file-system`.
+
+---
+
+## Types Reference
+
+All TypeScript interfaces and constants are defined in `types/`:
+
+### `types/auth.ts`
+
+| Export | Type | Description |
+|--------|------|-------------|
+| `User` | interface | `{ id, email, is_apple_user? }` — user identity from JWT/API |
+| `AuthResponse` | interface | `{ access_token, refresh_token, user }` — login/register response |
+| `AuthState` | interface | `{ isAuthenticated, isLoading, user }` — auth context state |
+
+### `types/journal.ts`
+
+| Export | Type | Description |
+|--------|------|-------------|
+| `JournalEntry` | interface | Full journal entry shape (14 fields) |
+| `JournalStreak` | interface | Streak data (current, longest, total, last date) |
+| `JournalListResponse` | interface | Paginated response `{ entries, total, limit, offset }` |
+| `WeeklyInsights` | interface | Stats: avg mood, trend, top mood, daily scores, total entries |
+| `DailyScore` | interface | `{ date, score }` — single day's mood score |
+| `WeeklyReport` | interface | AI report: narrative, themes, mood explanation, suggestion, stats |
+| `GuestEntry` | interface | Subset of JournalEntry for local-only guest entries |
+| `MoodOption` | interface | `{ emoji, label, color, value }` — mood selector option |
+| `MOOD_OPTIONS` | const array | 8 mood options used throughout the app |
+
+**Note**: `WeeklyInsights` in `types/journal.ts` has a simpler shape (`top_mood: string`) than what the backend returns and what `insights.tsx` uses inline (which includes `mood_distribution`, `writing_stats`, `streak_data`, `time_pattern`). The insights screen defines its own extended interface locally. The type file covers the base shape.
 
 ---
 

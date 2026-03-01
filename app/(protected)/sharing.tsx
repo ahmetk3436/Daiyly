@@ -146,7 +146,7 @@ export default function SharingScreen() {
 
       if (isAuthenticated) {
         const promises: Promise<any>[] = [
-          api.get('/streak').catch(() => ({ data: null })),
+          api.get('/journals/streak').catch(() => ({ data: null })),
           api.get('/journals/insights').catch(() => ({ data: null })),
         ];
 

@@ -3,11 +3,11 @@ import '../lib/i18n';
 import React, { useEffect, useState } from 'react';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from 'nativewind';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+import { PaywallConfigProvider } from '../contexts/PaywallConfigContext';
 import { initLanguage } from '../lib/i18n';
 import { refreshApiBaseUrl, getRemoteMinVersion } from '../lib/api';
 import { compareVersions, getAppVersion, shouldCheckVersion, markVersionChecked } from '../lib/version';
@@ -15,12 +15,6 @@ import ForceUpdateModal, { wasRecentlyDismissed } from '../components/ForceUpdat
 
 function ThemedApp() {
   const { isDark } = useTheme();
-  const { setColorScheme } = useColorScheme();
-
-  // Sync ThemeContext preference to NativeWind's color scheme
-  useEffect(() => {
-    setColorScheme(isDark ? 'dark' : 'light');
-  }, [isDark]);
 
   return (
     <>
@@ -60,7 +54,9 @@ function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
-            <ThemedApp />
+            <PaywallConfigProvider>
+              <ThemedApp />
+            </PaywallConfigProvider>
           </AuthProvider>
         </ThemeProvider>
         <ForceUpdateModal
