@@ -166,7 +166,7 @@ export function getRemoteMinVersion(): string | null {
 
 // Hardcoded allowlist — baked into the binary, NOT remotely configurable.
 // Prevents a compromised backend from redirecting auth traffic to an attacker host.
-const ALLOWED_API_HOSTS = new Set(['89.47.113.196']);
+const ALLOWED_API_HOSTS = new Set(['api.vexellabspro.com']);
 
 function _applyApiUrl(base: string): void {
   // base is the raw URL without /api or /p suffix, e.g. "http://host:port"
