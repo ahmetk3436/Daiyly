@@ -138,7 +138,8 @@ api.interceptors.response.use(
 
     Sentry.captureException(error, {
       tags: {
-        endpoint: error.config?.url,
+        // Strip query params — they may carry sensitive values (pagination state, search queries)
+        endpoint: error.config?.url?.split('?')[0],
         status: String(error.response?.status ?? 'unknown'),
       },
     });

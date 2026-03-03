@@ -40,10 +40,16 @@ export const initializePurchases = async () => {
     // Guard: only pass ENFORCED if the SDK exported the enum (handles Expo Go / old SDKs).
     const verificationMode = ENTITLEMENT_VERIFICATION_MODE?.ENFORCED;
     if (verificationMode == null) {
-      Sentry.captureMessage(
-        '[Purchases] ENFORCED verification mode unavailable — possible SDK version mismatch',
-        'warning',
-      );
+      if (!__DEV__) {
+        // In production, proceeding without ENFORCED mode allows purchase bypass via MiTM.
+        // Abort init — premium features stay locked until the SDK issue is resolved.
+        Sentry.captureMessage(
+          '[Purchases] ENFORCED verification mode unavailable in production — aborting init',
+          'fatal',
+        );
+        return;
+      }
+      console.warn('[Purchases] ENFORCED verification mode unavailable (Expo Go / SDK mismatch)');
     }
     await Purchases.configure({
       apiKey: API_KEY,

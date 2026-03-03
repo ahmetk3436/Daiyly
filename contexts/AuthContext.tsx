@@ -24,7 +24,7 @@ interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
-  loginWithApple: (identityToken: string, authCode: string, fullName?: string, email?: string) => Promise<void>;
+  loginWithApple: (identityToken: string, authCode: string, fullName?: string, email?: string, nonce?: string) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: (password?: string, authorizationCode?: string) => Promise<void>;
   enterGuestMode: () => void;
@@ -120,13 +120,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign in with Apple (Guideline 4.8)
   const loginWithApple = useCallback(
-    async (identityToken: string, authCode: string, fullName?: string, email?: string) => {
+    async (identityToken: string, authCode: string, fullName?: string, email?: string, nonce?: string) => {
       try {
         const { data } = await authApi.post<AuthResponse>('/auth/apple', {
           identity_token: identityToken,
           authorization_code: authCode,
           full_name: fullName,
           email,
+          ...(nonce && { nonce }),
         });
         await setTokens(data.access_token, data.refresh_token);
         setUser({ id: data.user.id, email: data.user.email, is_apple_user: true });

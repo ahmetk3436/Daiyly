@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Platform, View, Text, Pressable, ActivityIndicator } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import { Ionicons } from '@expo/vector-icons';
 import * as Sentry from '@sentry/react-native';
 import { useAuth } from '../../contexts/AuthContext';
@@ -32,11 +33,20 @@ export default function AppleSignInButton({
       setLoading(true);
       hapticLight();
 
+      // Generate a cryptographic nonce to prevent identity token replay attacks.
+      // rawNonce is sent to the backend; Apple includes SHA256(rawNonce) in the token.
+      const rawNonce = Crypto.randomUUID();
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+      );
+
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
+        nonce: hashedNonce,
       });
 
       if (!credential.identityToken) {
@@ -51,7 +61,8 @@ export default function AppleSignInButton({
         credential.identityToken,
         credential.authorizationCode || '',
         fullName,
-        credential.email || undefined
+        credential.email || undefined,
+        rawNonce,
       );
     } catch (err: any) {
       if (err.code === 'ERR_REQUEST_CANCELED') {
