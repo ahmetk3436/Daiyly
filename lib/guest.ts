@@ -80,7 +80,9 @@ export async function clearGuestData(): Promise<void> {
   await Promise.all(
     ids.map((id) => SecureStore.deleteItemAsync(GUEST_ENTRY_PREFIX + id).catch(() => {})),
   );
-  await AsyncStorage.removeItem(GUEST_USES_KEY);
+  try {
+    await AsyncStorage.removeItem(GUEST_USES_KEY);
+  } catch {}
 }
 
 /**
@@ -94,22 +96,24 @@ export async function migrateGuestEntries(): Promise<number> {
 
   const results = await Promise.allSettled(
     guestEntries.map((entry) =>
-      api.post('/journals', {
-        mood_emoji: entry.mood_emoji,
-        mood_score: entry.mood_score,
-        content: entry.content,
-        card_color: entry.card_color,
-        tags: entry.tags || [],
-      }),
+      api
+        .post('/journals', {
+          mood_emoji: entry.mood_emoji,
+          mood_score: entry.mood_score,
+          content: entry.content,
+          card_color: entry.card_color,
+          tags: entry.tags || [],
+        })
+        .then(() => entry.id),
     ),
   );
 
   const migratedIds = new Set<string>();
-  results.forEach((result, i) => {
+  results.forEach((result) => {
     if (result.status === 'fulfilled') {
-      migratedIds.add(guestEntries[i].id);
+      migratedIds.add(result.value);
     } else {
-      console.warn('[guest] migration failed for entry', guestEntries[i].id, result.reason);
+      console.warn('[guest] migration failed', result.reason);
     }
   });
 
