@@ -76,7 +76,22 @@
     "planAnnualPerMonth": "$2.50/月",
     "planMonthlyPrice": "$4.99/月",
     "trialBadge": "包含7天免费试用",
-    "socialProof": "超过50,000人每天记日记"
+    "socialProof": "超过50,000人每天记日记",
+    "whyTitle": "您为什么开始写日记？",
+    "whyPersonalGrowth": "个人成长",
+    "whyStressRelief": "缓解压力",
+    "whyHabits": "目标与习惯",
+    "whyEmotions": "处理情绪",
+    "frequencyTitle": "您想多久写一次？",
+    "frequencyDaily": "每天",
+    "frequencyWeekly": "每周几次",
+    "frequencyWhenFeel": "想写的时候",
+    "frequencyQuick": "快速打卡",
+    "priorityTitle": "对您来说什么最重要？",
+    "priorityPrivacy": "完全隐私",
+    "priorityAI": "AI驱动的洞察",
+    "priorityMedia": "语音与照片",
+    "priorityPatterns": "追踪规律"
   },
   "home": {
     "greeting_morning": "早上好",

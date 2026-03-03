@@ -76,7 +76,22 @@
     "planAnnualPerMonth": "$2.50/mois",
     "planMonthlyPrice": "$4.99/mois",
     "trialBadge": "Essai gratuit de 7 jours inclus",
-    "socialProof": "50 000+ personnes journalisent quotidiennement"
+    "socialProof": "50 000+ personnes journalisent quotidiennement",
+    "whyTitle": "Pourquoi commencez-vous un journal ?",
+    "whyPersonalGrowth": "Croissance personnelle",
+    "whyStressRelief": "Réduction du stress",
+    "whyHabits": "Objectifs et habitudes",
+    "whyEmotions": "Traiter ses émotions",
+    "frequencyTitle": "À quelle fréquence voulez-vous écrire ?",
+    "frequencyDaily": "Chaque jour",
+    "frequencyWeekly": "Quelques fois par semaine",
+    "frequencyWhenFeel": "Quand j'en ai envie",
+    "frequencyQuick": "Check-ins rapides",
+    "priorityTitle": "Qu'est-ce qui compte le plus pour vous ?",
+    "priorityPrivacy": "Confidentialité totale",
+    "priorityAI": "Insights alimentés par l'IA",
+    "priorityMedia": "Voix et photos",
+    "priorityPatterns": "Suivre les tendances"
   },
   "home": {
     "greeting_morning": "Bonjour",

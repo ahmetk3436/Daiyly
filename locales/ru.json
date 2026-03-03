@@ -76,7 +76,22 @@
     "planAnnualPerMonth": "$2.50/мес",
     "planMonthlyPrice": "$4.99/мес",
     "trialBadge": "Включена 7-дневная пробная версия",
-    "socialProof": "Более 50 000 человек ведут дневник ежедневно"
+    "socialProof": "Более 50 000 человек ведут дневник ежедневно",
+    "whyTitle": "Зачем вы начинаете вести дневник?",
+    "whyPersonalGrowth": "Личностный рост",
+    "whyStressRelief": "Снятие стресса",
+    "whyHabits": "Цели и привычки",
+    "whyEmotions": "Проработка эмоций",
+    "frequencyTitle": "Как часто вы хотите писать?",
+    "frequencyDaily": "Каждый день",
+    "frequencyWeekly": "Несколько раз в неделю",
+    "frequencyWhenFeel": "Когда захочу",
+    "frequencyQuick": "Быстрые записи",
+    "priorityTitle": "Что для вас важнее всего?",
+    "priorityPrivacy": "Полная приватность",
+    "priorityAI": "Аналитика с ИИ",
+    "priorityMedia": "Голос и фото",
+    "priorityPatterns": "Отслеживать закономерности"
   },
   "home": {
     "greeting_morning": "Доброе утро",

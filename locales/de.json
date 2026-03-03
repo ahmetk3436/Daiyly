@@ -76,7 +76,22 @@
     "planAnnualPerMonth": "$2.50/mo",
     "planMonthlyPrice": "$4.99/month",
     "trialBadge": "7-tägige kostenlose Testversion inklusive",
-    "socialProof": "50.000+ Menschen schreiben täglich Tagebuch"
+    "socialProof": "50.000+ Menschen schreiben täglich Tagebuch",
+    "whyTitle": "Warum fängst du an, Tagebuch zu schreiben?",
+    "whyPersonalGrowth": "Persönliches Wachstum",
+    "whyStressRelief": "Stressabbau",
+    "whyHabits": "Ziele und Gewohnheiten",
+    "whyEmotions": "Emotionen verarbeiten",
+    "frequencyTitle": "Wie oft möchtest du schreiben?",
+    "frequencyDaily": "Jeden Tag",
+    "frequencyWeekly": "Ein paar Mal pro Woche",
+    "frequencyWhenFeel": "Wenn ich Lust habe",
+    "frequencyQuick": "Kurze Check-ins",
+    "priorityTitle": "Was ist dir am wichtigsten?",
+    "priorityPrivacy": "Vollständige Privatsphäre",
+    "priorityAI": "KI-gestützte Einblicke",
+    "priorityMedia": "Sprache und Fotos",
+    "priorityPatterns": "Muster verfolgen"
   },
   "home": {
     "greeting_morning": "Guten Morgen",

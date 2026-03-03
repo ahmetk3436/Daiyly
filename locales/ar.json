@@ -76,7 +76,22 @@
     "planAnnualPerMonth": "$2.50/شهر",
     "planMonthlyPrice": "$4.99/شهر",
     "trialBadge": "تجربة مجانية لمدة ٧ أيام مشمولة",
-    "socialProof": "أكثر من ٥٠٬٠٠٠ شخص يدوّنون يومياً"
+    "socialProof": "أكثر من ٥٠٬٠٠٠ شخص يدوّنون يومياً",
+    "whyTitle": "لماذا تبدأ في كتابة يومياتك؟",
+    "whyPersonalGrowth": "النمو الشخصي",
+    "whyStressRelief": "تخفيف التوتر",
+    "whyHabits": "الأهداف والعادات",
+    "whyEmotions": "معالجة المشاعر",
+    "frequencyTitle": "كم مرة تريد الكتابة؟",
+    "frequencyDaily": "كل يوم",
+    "frequencyWeekly": "بضع مرات في الأسبوع",
+    "frequencyWhenFeel": "عندما أشعر برغبة",
+    "frequencyQuick": "تسجيلات سريعة",
+    "priorityTitle": "ما الأهم بالنسبة لك؟",
+    "priorityPrivacy": "خصوصية كاملة",
+    "priorityAI": "رؤى مدعومة بالذكاء الاصطناعي",
+    "priorityMedia": "صوت وصور",
+    "priorityPatterns": "تتبع الأنماط"
   },
   "home": {
     "greeting_morning": "صباح الخير",

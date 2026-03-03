@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Sentry from '@sentry/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import api from '../../lib/api';
@@ -23,6 +24,15 @@ import { maybeRequestReview } from '../../lib/review';
 import { cacheSet, cacheGet } from '../../lib/cache';
 import { MOOD_OPTIONS } from '../../types/journal';
 import type { JournalEntry, GuestEntry, JournalStreak } from '../../types/journal';
+
+const FIRST_VISIT_KEY = '@daiyly_first_visit';
+const INTENT_ANSWERS_KEY = '@daiyly_onboarding_intent';
+
+type IntentAnswers = {
+  why: string;
+  frequency: string;
+  priority: string;
+};
 
 interface OnThisDayEntry {
   id: string;
@@ -106,6 +116,31 @@ interface DisplayEntry {
   detected_emotion?: string;
 }
 
+function getIntentBannerMessage(intent: IntentAnswers): string {
+  switch (intent.priority) {
+    case 'privacy':
+      return 'Your journal is end-to-end encrypted and stays yours.';
+    case 'ai':
+      return 'Your first AI insight will appear after 7 entries.';
+    case 'media':
+      return 'Tap Quick or Voice for 30-second entries.';
+    case 'patterns':
+      return 'Your mood trends will appear after your first week.';
+    default:
+      break;
+  }
+  switch (intent.why) {
+    case 'stress':
+      return 'Start with a short entry — even one sentence helps.';
+    case 'habits':
+      return 'Set a daily reminder to build your journaling habit.';
+    case 'emotions':
+      return 'Try the Quick mood check-in below to get started.';
+    default:
+      return 'Welcome! Tap "New Entry" to write your first journal.';
+  }
+}
+
 export default function HomeScreen() {
   const { user, isAuthenticated, isGuest } = useAuth();
   const { isDark } = useTheme();
@@ -119,10 +154,29 @@ export default function HomeScreen() {
   const [isStale, setIsStale] = useState(false);
   const [streakCelebration, setStreakCelebration] = useState(false);
   const [celebrationStreak, setCelebrationStreak] = useState(0);
+  const [intentBanner, setIntentBanner] = useState<string | null>(null);
   const celebrationScale = useRef(new Animated.Value(0)).current;
   const celebrationOpacity = useRef(new Animated.Value(0)).current;
 
   const userName = user?.email?.split('@')[0] || 'there';
+
+  // Load intent-based welcome banner on first visit
+  useEffect(() => {
+    (async () => {
+      try {
+        const alreadySeen = await AsyncStorage.getItem(FIRST_VISIT_KEY);
+        if (alreadySeen) return;
+        const raw = await AsyncStorage.getItem(INTENT_ANSWERS_KEY);
+        if (!raw) return;
+        const answers: IntentAnswers = JSON.parse(raw);
+        const message = getIntentBannerMessage(answers);
+        setIntentBanner(message);
+        await AsyncStorage.setItem(FIRST_VISIT_KEY, 'true');
+      } catch {
+        // non-critical, ignore
+      }
+    })();
+  }, []);
 
   // Animate celebration in when streakCelebration becomes true
   useEffect(() => {
@@ -365,6 +419,23 @@ export default function HomeScreen() {
             <Text className="text-xs text-amber-700 dark:text-amber-400 ml-2">
               Showing cached data — pull to refresh
             </Text>
+          </View>
+        )}
+
+        {/* Intent-based welcome banner (first visit only) */}
+        {intentBanner !== null && (
+          <View className="mx-6 mt-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl px-4 py-3 flex-row items-center border border-blue-100 dark:border-blue-800">
+            <Ionicons name="sparkles-outline" size={16} color="#2563EB" />
+            <Text className="text-xs text-blue-700 dark:text-blue-300 ml-2 flex-1">
+              {intentBanner}
+            </Text>
+            <Pressable
+              onPress={() => { hapticLight(); setIntentBanner(null); }}
+              className="ml-2 p-1"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close" size={14} color={isDark ? '#93C5FD' : '#2563EB'} />
+            </Pressable>
           </View>
         )}
 

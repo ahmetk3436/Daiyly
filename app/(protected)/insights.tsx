@@ -16,6 +16,7 @@ import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ExpoSharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import api from '../../lib/api';
 import { hapticLight, hapticSuccess, hapticError } from '../../lib/haptics';
 import { cacheSet, cacheGet } from '../../lib/cache';
@@ -410,7 +411,6 @@ export default function InsightsScreen() {
       const sharingAvailable = await ExpoSharing.isAvailableAsync();
       if (sharingAvailable) {
         // Write to a temp file for expo-sharing to pick up as an attachment
-        const { FileSystem } = await import('expo-file-system');
         const fileUri =
           FileSystem.cacheDirectory + 'daiyly-therapist-report.txt';
         await FileSystem.writeAsStringAsync(fileUri, shareText);

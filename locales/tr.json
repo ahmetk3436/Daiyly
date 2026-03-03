@@ -76,7 +76,22 @@
     "planAnnualPerMonth": "$2.50/mo",
     "planMonthlyPrice": "$4.99/month",
     "trialBadge": "7 günlük ücretsiz deneme dahil",
-    "socialProof": "50.000+ kişi her gün günlük tutuyor"
+    "socialProof": "50.000+ kişi her gün günlük tutuyor",
+    "whyTitle": "Neden günlük tutmaya başlıyorsunuz?",
+    "whyPersonalGrowth": "Kişisel gelişim",
+    "whyStressRelief": "Stres azaltma",
+    "whyHabits": "Hedefler ve alışkanlıklar",
+    "whyEmotions": "Duyguları işleme",
+    "frequencyTitle": "Ne sıklıkla yazmak istersiniz?",
+    "frequencyDaily": "Her gün",
+    "frequencyWeekly": "Haftada birkaç kez",
+    "frequencyWhenFeel": "Hissettiğimde",
+    "frequencyQuick": "Hızlı kontroller",
+    "priorityTitle": "Sizin için en önemli olan nedir?",
+    "priorityPrivacy": "Tam gizlilik",
+    "priorityAI": "Yapay zeka destekli içgörüler",
+    "priorityMedia": "Ses ve fotoğraflar",
+    "priorityPatterns": "Kalıpları takip et"
   },
   "home": {
     "greeting_morning": "Günaydın",

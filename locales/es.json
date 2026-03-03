@@ -76,7 +76,22 @@
     "planAnnualPerMonth": "$2.50/mes",
     "planMonthlyPrice": "$4.99/mes",
     "trialBadge": "Prueba gratuita de 7 días incluida",
-    "socialProof": "Más de 50.000 personas hacen journaling diariamente"
+    "socialProof": "Más de 50.000 personas hacen journaling diariamente",
+    "whyTitle": "¿Por qué empiezas un diario?",
+    "whyPersonalGrowth": "Crecimiento personal",
+    "whyStressRelief": "Alivio del estrés",
+    "whyHabits": "Metas y hábitos",
+    "whyEmotions": "Procesar emociones",
+    "frequencyTitle": "¿Con qué frecuencia quieres escribir?",
+    "frequencyDaily": "Cada día",
+    "frequencyWeekly": "Varias veces por semana",
+    "frequencyWhenFeel": "Cuando tenga ganas",
+    "frequencyQuick": "Check-ins rápidos",
+    "priorityTitle": "¿Qué te importa más?",
+    "priorityPrivacy": "Privacidad total",
+    "priorityAI": "Insights con IA",
+    "priorityMedia": "Voz y fotos",
+    "priorityPatterns": "Seguir patrones"
   },
   "home": {
     "greeting_morning": "Buenos días",
