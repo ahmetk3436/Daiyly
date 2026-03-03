@@ -13,6 +13,9 @@ export interface JournalEntry {
   is_private: boolean;
   created_at: string;
   updated_at: string;
+  detected_emotion?: string; // 'happy' | 'sad' | 'angry' | 'fear' | 'disgust' | 'surprise' | 'neutral'
+  emotion_scores?: Array<{ type: string; score: number }>;
+  emotion_analyzed_at?: string;
 }
 
 export interface JournalStreak {

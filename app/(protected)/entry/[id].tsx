@@ -12,6 +12,7 @@ import {
   Modal,
   Dimensions,
 } from 'react-native';
+
 import { Image } from 'expo-image';
 import * as Sentry from '@sentry/react-native';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -32,6 +33,26 @@ import {
 } from '../../../components/ui/MoodCard';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { JournalEntry } from '../../../types/journal';
+
+const EMOTION_COLORS: Record<string, { bg: string; text: string; bar: string }> = {
+  happy: { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-300', bar: '#F59E0B' },
+  sad: { bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-700 dark:text-blue-300', bar: '#3B82F6' },
+  angry: { bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-300', bar: '#EF4444' },
+  fear: { bg: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-700 dark:text-purple-300', bar: '#8B5CF6' },
+  disgust: { bg: 'bg-green-50 dark:bg-green-900/20', text: 'text-green-700 dark:text-green-300', bar: '#10B981' },
+  surprise: { bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700 dark:text-orange-300', bar: '#F97316' },
+  neutral: { bg: 'bg-slate-50 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-400', bar: '#94A3B8' },
+};
+
+const EMOTION_EMOJIS: Record<string, string> = {
+  happy: '😊',
+  sad: '😢',
+  angry: '😠',
+  fear: '😰',
+  disgust: '🤢',
+  surprise: '😲',
+  neutral: '😐',
+};
 
 const MOOD_EMOJIS: string[] = [
   '\u{1F60A}',
@@ -479,6 +500,70 @@ export default function EntryDetailScreen() {
                     </Text>
                   </View>
                 </View>
+
+                {/* AI Emotion Analysis Section */}
+                {entry.detected_emotion ? (
+                  <View className="mb-4 pb-4 border-b border-border">
+                    {/* Section Header */}
+                    <View className="flex-row items-center justify-between mb-3">
+                      <Text className="text-sm font-semibold text-text-primary">
+                        ✨ AI Emotion Analysis
+                      </Text>
+                      {(() => {
+                        const emotionKey = entry.detected_emotion.toLowerCase();
+                        const colors = EMOTION_COLORS[emotionKey] || EMOTION_COLORS.neutral;
+                        const emoji = EMOTION_EMOJIS[emotionKey] || '😐';
+                        return (
+                          <View className={`flex-row items-center rounded-full px-3 py-1 ${colors.bg}`}>
+                            <Text className="text-xs mr-1">{emoji}</Text>
+                            <Text className={`text-xs font-semibold capitalize ${colors.text}`}>
+                              {entry.detected_emotion}
+                            </Text>
+                          </View>
+                        );
+                      })()}
+                    </View>
+
+                    {/* Emotion Bar Chart */}
+                    {entry.emotion_scores && entry.emotion_scores.length > 0 ? (
+                      <View style={{ gap: 6 }}>
+                        {[...entry.emotion_scores]
+                          .sort((a, b) => b.score - a.score)
+                          .slice(0, 4)
+                          .map((item) => {
+                            const emotionKey = item.type.toLowerCase();
+                            const colors = EMOTION_COLORS[emotionKey] || EMOTION_COLORS.neutral;
+                            const emoji = EMOTION_EMOJIS[emotionKey] || '😐';
+                            return (
+                              <View key={item.type} className="flex-row items-center" style={{ gap: 8 }}>
+                                <Text className="text-xs w-3">{emoji}</Text>
+                                <Text className="text-xs text-text-secondary capitalize w-14">
+                                  {item.type}
+                                </Text>
+                                <View className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                                  <View
+                                    className="h-full rounded-full"
+                                    style={{
+                                      width: `${Math.round(item.score * 100)}%`,
+                                      backgroundColor: colors.bar,
+                                    }}
+                                  />
+                                </View>
+                                <Text className="text-xs text-text-muted w-8 text-right">
+                                  {item.score.toFixed(2)}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                      </View>
+                    ) : null}
+
+                    {/* Disclaimer */}
+                    <Text className="text-[10px] text-text-muted mt-3">
+                      Analyzed by EmotionSense AI · not clinical advice
+                    </Text>
+                  </View>
+                ) : null}
 
                 {/* Content */}
                 <Text className="text-base text-text-primary leading-relaxed">

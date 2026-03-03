@@ -67,6 +67,26 @@ function getMoodColor(score: number): string {
   return '#EF4444';
 }
 
+const EMOTION_CHIP_COLORS: Record<string, { bg: string; text: string }> = {
+  happy: { bg: '#FEF3C7', text: '#92400E' },
+  sad: { bg: '#DBEAFE', text: '#1E40AF' },
+  angry: { bg: '#FEE2E2', text: '#991B1B' },
+  fear: { bg: '#EDE9FE', text: '#5B21B6' },
+  disgust: { bg: '#D1FAE5', text: '#065F46' },
+  surprise: { bg: '#FFEDD5', text: '#9A3412' },
+  neutral: { bg: '#F1F5F9', text: '#475569' },
+};
+
+const EMOTION_EMOJIS_HOME: Record<string, string> = {
+  happy: '😊',
+  sad: '😢',
+  angry: '😠',
+  fear: '😰',
+  disgust: '🤢',
+  surprise: '😲',
+  neutral: '😐',
+};
+
 interface DisplayEntry {
   id: string;
   mood_emoji: string;
@@ -75,6 +95,7 @@ interface DisplayEntry {
   card_color: string;
   photo_url?: string;
   created_at: string;
+  detected_emotion?: string;
 }
 
 export default function HomeScreen() {
@@ -133,6 +154,7 @@ export default function HomeScreen() {
             card_color: e.card_color,
             photo_url: e.photo_url || undefined,
             created_at: e.created_at,
+            detected_emotion: e.detected_emotion,
           })
         );
 
@@ -539,9 +561,30 @@ export default function HomeScreen() {
                   >
                     {entry.content || 'No content'}
                   </Text>
-                  <Text className="text-xs text-text-muted mt-1">
-                    {timeAgo(entry.created_at)}
-                  </Text>
+                  <View className="flex-row items-center mt-1" style={{ gap: 6 }}>
+                    <Text className="text-xs text-text-muted">
+                      {timeAgo(entry.created_at)}
+                    </Text>
+                    {entry.detected_emotion ? (() => {
+                      const key = entry.detected_emotion.toLowerCase();
+                      const chip = EMOTION_CHIP_COLORS[key] || EMOTION_CHIP_COLORS.neutral;
+                      const emoji = EMOTION_EMOJIS_HOME[key] || '😐';
+                      return (
+                        <View
+                          className="flex-row items-center rounded-full px-1.5 py-0.5"
+                          style={{ backgroundColor: chip.bg }}
+                        >
+                          <Text style={{ fontSize: 9 }}>{emoji}</Text>
+                          <Text
+                            className="font-medium capitalize ml-0.5"
+                            style={{ fontSize: 9, color: chip.text }}
+                          >
+                            {entry.detected_emotion}
+                          </Text>
+                        </View>
+                      );
+                    })() : null}
+                  </View>
                 </View>
 
                 {/* Photo thumbnail */}
