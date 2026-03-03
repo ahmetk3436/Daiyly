@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Sentry from '@sentry/react-native';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
@@ -12,6 +13,24 @@ import { initLanguage } from '../lib/i18n';
 import { refreshApiBaseUrl, getRemoteMinVersion } from '../lib/api';
 import { compareVersions, getAppVersion, shouldCheckVersion, markVersionChecked } from '../lib/version';
 import ForceUpdateModal, { wasRecentlyDismissed } from '../components/ForceUpdateModal';
+
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN,
+  tracesSampleRate: __DEV__ ? 1.0 : 0.2,
+  environment: __DEV__ ? 'development' : 'production',
+  // Scrub request body and user email from error events before sending to Sentry.
+  // Prevents journal entry content, passwords, and tokens from leaking to a third party.
+  beforeSend(event) {
+    if (event.request?.data) {
+      event.request.data = '[scrubbed]';
+    }
+    if (event.user?.email) {
+      delete event.user.email;
+    }
+    return event;
+  },
+});
 
 function ThemedApp() {
   const { isDark } = useTheme();
@@ -68,4 +87,4 @@ function RootLayout() {
   );
 }
 
-export default RootLayout;
+export default Sentry.wrap(RootLayout);

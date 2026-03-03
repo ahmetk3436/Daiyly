@@ -37,7 +37,8 @@ export const initializePurchases = async () => {
     Purchases.setLogLevel(LOG_LEVEL.WARN);
     await Purchases.configure({
       apiKey: API_KEY,
-      entitlementVerificationMode: ENTITLEMENT_VERIFICATION_MODE?.INFORMATIONAL,
+      // ENFORCED: signature verification failure denies the entitlement (not just logged).
+      entitlementVerificationMode: ENTITLEMENT_VERIFICATION_MODE?.ENFORCED,
     });
     isInitialized = true;
     if (__DEV__) console.log('[Purchases] RevenueCat initialized');

@@ -54,6 +54,13 @@ const HIDDEN_TAB_ROUTES = [
   '/sharing',
 ];
 
+// Allowlist for deep-link navigation. Only these paths may be navigated to via
+// a daiyly:// deep link. An open redirect (no whitelist) lets a malicious link
+// route users to arbitrary paths including potential auth bypass screens.
+const ALLOWED_DEEP_LINK_PATHS = new Set([
+  'home', 'insights', 'history', 'search', 'settings',
+]);
+
 export default function ProtectedLayout() {
   const { isAuthenticated, isLoading, isGuest } = useAuth();
   const { isDark } = useTheme();
@@ -64,12 +71,13 @@ export default function ProtectedLayout() {
   const pathname = usePathname();
   const pendingDeepLink = useRef<string | null>(null);
 
-  // Capture initial deep link URL on cold start
+  // Capture initial deep link URL on cold start.
+  // Only navigate to allowlisted paths — prevents open-redirect via crafted daiyly:// links.
   useEffect(() => {
     Linking.getInitialURL().then((url) => {
       if (url) {
         const parsed = Linking.parse(url);
-        if (parsed.path && parsed.path !== 'home' && parsed.path !== '') {
+        if (parsed.path && ALLOWED_DEEP_LINK_PATHS.has(parsed.path)) {
           pendingDeepLink.current = `/(protected)/${parsed.path}`;
         }
       }
