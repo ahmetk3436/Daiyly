@@ -51,8 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (token) {
           try {
             const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-            const decoded = globalThis.atob?.(base64) ?? Buffer.from(base64, 'base64').toString('utf-8');
-            const payload = JSON.parse(decodeURIComponent(escape(decoded)));
+            const payload = JSON.parse(Buffer.from(base64, 'base64').toString('utf-8'));
             if (payload.exp && payload.exp * 1000 > Date.now()) {
               setUser({ id: payload.sub, email: payload.email, is_apple_user: payload.is_apple_user === true });
             } else {

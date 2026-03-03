@@ -173,7 +173,7 @@ function _applyApiUrl(base: string): void {
   try {
     const url = new URL(base.startsWith('http') ? base : `https://${base}`);
     if (!ALLOWED_API_HOSTS.has(url.hostname)) {
-      console.warn('[api] Remote config api_base_url rejected — host not in allowlist:', url.hostname);
+      if (__DEV__) console.warn('[api] Remote config api_base_url rejected — host not in allowlist:', url.hostname);
       return;
     }
   } catch {
