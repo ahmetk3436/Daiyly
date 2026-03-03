@@ -1,23 +1,65 @@
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
 const ACCESS_TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
 
+// AsyncStorage fallback keys — only used in Expo Go (dev) where SecureStore
+// silently returns null after a JS reload/restart.
+const FALLBACK_ACCESS_KEY = '@daiyly_access_token_fallback';
+const FALLBACK_REFRESH_KEY = '@daiyly_refresh_token_fallback';
+
+// Production builds must never write tokens to plaintext AsyncStorage.
+const isExpoGo = Constants.appOwnership === 'expo';
+
+async function readFromSecureOrFallback(
+  secureKey: string,
+  fallbackKey: string,
+): Promise<string | null> {
+  try {
+    const val = await SecureStore.getItemAsync(secureKey);
+    if (val) return val;
+  } catch {
+    // SecureStore unavailable — fall through
+  }
+  if (!isExpoGo) return null;
+  try {
+    return await AsyncStorage.getItem(fallbackKey);
+  } catch {
+    return null;
+  }
+}
+
 export const getAccessToken = (): Promise<string | null> =>
-  SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  readFromSecureOrFallback(ACCESS_TOKEN_KEY, FALLBACK_ACCESS_KEY);
 
 export const getRefreshToken = (): Promise<string | null> =>
-  SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  readFromSecureOrFallback(REFRESH_TOKEN_KEY, FALLBACK_REFRESH_KEY);
 
 export const setTokens = async (
   accessToken: string,
-  refreshToken: string
+  refreshToken: string,
 ): Promise<void> => {
-  await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken);
-  await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
+  // Write to SecureStore (primary) — parallel
+  await Promise.all([
+    SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken).catch(() => {}),
+    SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken).catch(() => {}),
+  ]);
+  // Write AsyncStorage fallback only in Expo Go (development) — parallel
+  if (isExpoGo) {
+    await Promise.all([
+      AsyncStorage.setItem(FALLBACK_ACCESS_KEY, accessToken).catch(() => {}),
+      AsyncStorage.setItem(FALLBACK_REFRESH_KEY, refreshToken).catch(() => {}),
+    ]);
+  }
 };
 
 export const clearTokens = async (): Promise<void> => {
-  await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-  await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+  await Promise.all([
+    SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY).catch(() => {}),
+    SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY).catch(() => {}),
+    AsyncStorage.removeItem(FALLBACK_ACCESS_KEY).catch(() => {}),
+    AsyncStorage.removeItem(FALLBACK_REFRESH_KEY).catch(() => {}),
+  ]);
 };

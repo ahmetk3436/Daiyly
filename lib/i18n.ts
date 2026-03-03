@@ -122,8 +122,12 @@ export const changeLanguage = async (languageCode: string): Promise<void> => {
       I18nManager.forceRTL(false);
     }
 
-    // Reload app to apply RTL changes
-    await Updates.reloadAsync();
+    // Reload app to apply RTL changes (no-op in Expo Go)
+    try {
+      await Updates.reloadAsync();
+    } catch {
+      // Expo Go doesn't support Updates.reloadAsync — RTL takes effect on next cold start
+    }
   }
 };
 

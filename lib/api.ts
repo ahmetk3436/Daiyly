@@ -126,6 +126,7 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
         return api(originalRequest);
       } catch (refreshError) {
+        Sentry.captureException(refreshError);
         processQueue(refreshError, null);
         await clearTokens();
         emitAuthExpired();

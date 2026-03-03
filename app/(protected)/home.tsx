@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Sentry from '@sentry/react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import api from '../../lib/api';
@@ -153,7 +154,7 @@ export default function HomeScreen() {
         setTodayMood(todayEntry || null);
       }
     } catch (err) {
-      console.error('Failed to load home data:', err);
+      Sentry.captureException(err);
       // Offline fallback: try cache
       if (isAuthenticated) {
         const cached = await cacheGet<DisplayEntry[]>('home_entries');
