@@ -19,14 +19,21 @@ Sentry.init({
   enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN,
   tracesSampleRate: __DEV__ ? 1.0 : 0.2,
   environment: __DEV__ ? 'development' : 'production',
-  // Scrub request body and user email from error events before sending to Sentry.
-  // Prevents journal entry content, passwords, and tokens from leaking to a third party.
+  // Scrub request body, user email, and network breadcrumbs before sending to Sentry.
+  // Journal API endpoint URLs in breadcrumbs reveal writing behavior patterns and
+  // may qualify as health data under FTC HBNR 2024.
   beforeSend(event) {
     if (event.request?.data) {
       event.request.data = '[scrubbed]';
     }
     if (event.user?.email) {
       delete event.user.email;
+    }
+    const breadcrumbs: any[] = (event as any).breadcrumbs?.values ?? [];
+    for (const bc of breadcrumbs) {
+      if (bc.category === 'xhr' || bc.category === 'fetch' || bc.category === 'http') {
+        bc.data = undefined;
+      }
     }
     return event;
   },

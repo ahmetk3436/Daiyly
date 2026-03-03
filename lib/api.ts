@@ -164,20 +164,33 @@ export function getRemoteMinVersion(): string | null {
   return _remoteMinVersion;
 }
 
-// Restore cached URL immediately (runs async; first requests use hardcoded URL)
-AsyncStorage.getItem(_CACHED_URL_KEY).then((cached) => {
-  if (!cached) return;
-  _applyApiUrl(cached);
-}).catch(() => {});
+// Hardcoded allowlist — baked into the binary, NOT remotely configurable.
+// Prevents a compromised backend from redirecting auth traffic to an attacker host.
+const ALLOWED_API_HOSTS = new Set(['89.47.113.196']);
 
 function _applyApiUrl(base: string): void {
   // base is the raw URL without /api or /p suffix, e.g. "http://host:port"
+  try {
+    const url = new URL(base.startsWith('http') ? base : `https://${base}`);
+    if (!ALLOWED_API_HOSTS.has(url.hostname)) {
+      console.warn('[api] Remote config api_base_url rejected — host not in allowlist:', url.hostname);
+      return;
+    }
+  } catch {
+    return; // Malformed URL — reject silently
+  }
   const stripped = base.replace(/\/api(\/p)?$/, '');
   const protectedBase = stripped + '/api/p';
   const publicBase = stripped + '/api';
   api.defaults.baseURL = protectedBase;
   authApi.defaults.baseURL = publicBase;
 }
+
+// Restore cached URL immediately (runs async; first requests use hardcoded URL)
+AsyncStorage.getItem(_CACHED_URL_KEY).then((cached) => {
+  if (!cached) return;
+  _applyApiUrl(cached);
+}).catch(() => {});
 
 /** Call once at app startup (fire-and-forget). Updates API URL from remote config. */
 export async function refreshApiBaseUrl(): Promise<void> {
