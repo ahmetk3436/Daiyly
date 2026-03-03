@@ -229,11 +229,11 @@ export default function InsightsScreen() {
           api.get('/journals/insights'),
           api.get('/journals/streak'),
         ]);
-        setInsights(response.data.data);
+        setInsights(response.data);
         setStreak(streakRes.data);
 
         // Cache for offline
-        cacheSet('insights_data', response.data.data);
+        cacheSet('insights_data', response.data);
         cacheSet('insights_streak', streakRes.data);
 
         // Fetch AI weekly report
