@@ -261,6 +261,7 @@ export default function InsightsScreen() {
           return;
         }
       }
+      Sentry.captureException(err);
       const errorMessage =
         err?.response?.data?.message ||
         'Failed to load insights. Please try again.';

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import * as Sentry from '@sentry/react-native';
 import {
   checkSubscriptionStatus,
   purchasePackage,
@@ -43,6 +44,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       const subscribed = await checkSubscriptionStatus();
       setIsSubscribed(subscribed);
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Error checking subscription:', error);
     } finally {
       setIsLoading(false);
@@ -60,6 +62,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       return success;
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Purchase error:', error);
       return false;
     } finally {
@@ -76,6 +79,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       return success;
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Restore error:', error);
       return false;
     } finally {
@@ -88,6 +92,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       const offeringsData = await getOfferings();
       setOfferings(offeringsData);
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Error fetching offerings:', error);
     }
   };

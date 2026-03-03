@@ -1,4 +1,5 @@
 // Safe import — react-native-purchases requires a dev build (not available in Expo Go)
+import * as Sentry from '@sentry/react-native';
 let Purchases: any = null;
 let LOG_LEVEL: any = null;
 let RevenueCatUI: any = null;
@@ -35,6 +36,7 @@ export const initializePurchases = async () => {
     isInitialized = true;
     console.log('[Purchases] RevenueCat initialized');
   } catch (error) {
+    Sentry.captureException(error);
     console.warn('[Purchases] Configure failed (Expo Go?) — running in free mode');
     isInitialized = false;
   }
@@ -46,6 +48,7 @@ export const getOfferings = async (): Promise<PurchasesOffering | null> => {
     const offerings = await Purchases.getOfferings();
     return offerings.current;
   } catch (error) {
+    Sentry.captureException(error);
     console.warn('[Purchases] getOfferings failed:', error);
     return null;
   }
@@ -60,6 +63,7 @@ export const purchasePackage = async (
     return customerInfo.entitlements.active.premium !== undefined;
   } catch (error: any) {
     if (!error.userCancelled) {
+      Sentry.captureException(error);
       console.warn('[Purchases] Purchase failed:', error);
     }
     return false;
@@ -72,6 +76,7 @@ export const restorePurchases = async (): Promise<boolean> => {
     const customerInfo = await Purchases.restorePurchases();
     return customerInfo.entitlements.active.premium !== undefined;
   } catch (error) {
+    Sentry.captureException(error);
     console.warn('[Purchases] Restore failed:', error);
     return false;
   }
@@ -83,6 +88,7 @@ export const checkSubscriptionStatus = async (): Promise<boolean> => {
     const customerInfo = await Purchases.getCustomerInfo();
     return customerInfo.entitlements.active.premium !== undefined;
   } catch (error) {
+    Sentry.captureException(error);
     console.warn('[Purchases] Status check failed:', error);
     return false;
   }
@@ -100,6 +106,7 @@ export const presentPaywall = async (): Promise<boolean> => {
     const result = await RevenueCatUI.presentPaywall();
     return result === 'PURCHASED' || result === 'RESTORED';
   } catch (error) {
+    Sentry.captureException(error);
     console.warn('[Purchases] presentPaywall failed:', error);
     return false;
   }
@@ -113,6 +120,7 @@ export const presentPaywallIfNeeded = async (): Promise<boolean> => {
     });
     return result === 'PURCHASED' || result === 'RESTORED';
   } catch (error) {
+    Sentry.captureException(error);
     console.warn('[Purchases] presentPaywallIfNeeded failed:', error);
     return false;
   }

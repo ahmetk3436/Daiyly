@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, Switch, ActivityIndicator, Alert, Linking, AppState, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Sentry from '@sentry/react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -250,7 +251,8 @@ export default function NotificationCenterScreen() {
         icon: 'notifications-outline',
         color: '#2563EB',
       });
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // If API fails, show a generic reminder
       items.push({
         id: 'fallback-reminder',

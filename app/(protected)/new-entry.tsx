@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Sentry from '@sentry/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -230,6 +231,7 @@ export default function NewEntryScreen() {
       trackEntrySaved().catch(() => {}); // fire-and-forget review prompt
       router.back();
     } catch (err: any) {
+      Sentry.captureException(err);
       hapticError();
       const message =
         err?.response?.data?.message ||

@@ -6,6 +6,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -102,7 +103,9 @@ export default function PaywallScreen() {
         const success = await handlePurchase(pkg);
         if (success) await handlePurchaseCompleted();
       }
-    } catch {} finally {
+    } catch (err) {
+      Sentry.captureException(err);
+    } finally {
       setPurchasing(false);
     }
   };

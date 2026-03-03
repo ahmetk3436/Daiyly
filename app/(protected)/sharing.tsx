@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Sentry from '@sentry/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -220,6 +221,7 @@ export default function SharingScreen() {
         }
       }
     } catch (err) {
+      Sentry.captureException(err);
       console.error('Failed to load sharing data:', err);
     } finally {
       setLoading(false);
@@ -264,6 +266,7 @@ export default function SharingScreen() {
 
       hapticSuccess();
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Share error:', error);
       hapticError();
       Alert.alert('Share Failed', 'Could not share your card. Please try again.');

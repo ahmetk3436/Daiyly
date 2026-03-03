@@ -3,6 +3,7 @@ import { View, Text, KeyboardAvoidingView, Platform, Pressable, Linking } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Sentry from '@sentry/react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -47,6 +48,7 @@ export default function RegisterScreen() {
         router.replace('/(protected)/home');
       }
     } catch (err: any) {
+      Sentry.captureException(err);
       setError(
         err.response?.data?.message || 'Registration failed. Please try again.'
       );
