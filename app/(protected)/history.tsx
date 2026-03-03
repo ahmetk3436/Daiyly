@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import * as Sentry from '@sentry/react-native';
 import {
   View,
   Text,
@@ -138,6 +139,7 @@ export default function HistoryScreen() {
         setHasMore(newEntries.length === PAGE_SIZE);
       }
     } catch (err) {
+      Sentry.captureException(err);
       console.error('Failed to fetch entries:', err);
       // Offline fallback: try cache
       if (!isGuest && resetOffset) {

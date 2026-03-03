@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import * as Sentry from '@sentry/react-native';
 import {
   View,
   Text,
@@ -239,7 +240,7 @@ export default function InsightsScreen() {
         setReportLoading(true);
         api.get('/journals/weekly-report')
           .then(res => setWeeklyReport(res.data))
-          .catch(() => setWeeklyReport(null))
+          .catch(err => { Sentry.captureException(err); setWeeklyReport(null); })
           .finally(() => setReportLoading(false));
       } else {
         const guestEntries = await getGuestEntries();

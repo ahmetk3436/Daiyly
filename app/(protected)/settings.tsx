@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as Sentry from '@sentry/react-native';
 import {
   View,
   Text,
@@ -65,7 +66,7 @@ export default function SettingsScreen() {
           if (s.notificationsEnabled !== undefined) setNotificationsEnabled(s.notificationsEnabled);
           if (s.biometricEnabled !== undefined) setBiometricEnabled(s.biometricEnabled);
         }
-      } catch {}
+      } catch (err) { Sentry.captureException(err); }
     };
     init();
   }, []);
@@ -75,7 +76,7 @@ export default function SettingsScreen() {
       const stored = await AsyncStorage.getItem('@daiyly_settings');
       const s = stored ? JSON.parse(stored) : {};
       await AsyncStorage.setItem('@daiyly_settings', JSON.stringify({ ...s, [key]: value }));
-    } catch {}
+    } catch (err) { Sentry.captureException(err); }
   };
 
   const handleDeleteAccount = async () => {
@@ -84,6 +85,7 @@ export default function SettingsScreen() {
       await deleteAccount(deletePassword);
       setShowDeleteModal(false);
     } catch (err: any) {
+      Sentry.captureException(err);
       Alert.alert(
         'Error',
         err.response?.data?.message || 'Failed to delete account'
@@ -108,6 +110,7 @@ export default function SettingsScreen() {
       if (err.code === 'ERR_REQUEST_CANCELED') {
         // User cancelled Apple re-auth — do nothing
       } else {
+        Sentry.captureException(err);
         Alert.alert(
           'Error',
           err.response?.data?.message || err.message || 'Failed to delete account'
@@ -184,6 +187,7 @@ export default function SettingsScreen() {
         );
       }
     } catch (e) {
+      Sentry.captureException(e);
       Alert.alert('Error', 'Failed to restore purchases. Please try again.');
     } finally {
       setIsRestoring(false);
@@ -211,7 +215,8 @@ export default function SettingsScreen() {
           allEntries = [...allEntries, ...entries];
           offset += limit;
           hasMore = entries.length === limit;
-        } catch {
+        } catch (err) {
+          Sentry.captureException(err);
           // Partial failure — export what we have so far
           fetchFailed = true;
           hasMore = false;
@@ -260,6 +265,7 @@ export default function SettingsScreen() {
         hapticError();
       }
     } catch (err: any) {
+      Sentry.captureException(err);
       hapticError();
       Alert.alert(
         'Export Failed',

@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -123,6 +124,7 @@ export default function EntryDetailScreen() {
       setEditMoodEmoji(fetchedEntry.mood_emoji || '\u{1F60A}');
       setEditCardColor(fetchedEntry.card_color || '#6366F1');
     } catch (error: any) {
+      Sentry.captureException(error);
       console.error('Failed to fetch entry:', error);
       hapticError();
       setEntry(null);
