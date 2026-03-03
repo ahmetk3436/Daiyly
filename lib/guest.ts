@@ -55,14 +55,17 @@ export async function saveGuestEntry(entry: GuestEntry): Promise<void> {
 export async function getGuestEntries(): Promise<GuestEntry[]> {
   try {
     const ids = await getEntryIDs();
-    const entries: GuestEntry[] = [];
-    for (const id of ids) {
-      try {
-        const raw = await SecureStore.getItemAsync(GUEST_ENTRY_PREFIX + id);
-        if (raw) entries.push(JSON.parse(raw) as GuestEntry);
-      } catch {}
-    }
-    return entries;
+    const results = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          const raw = await SecureStore.getItemAsync(GUEST_ENTRY_PREFIX + id);
+          return raw ? (JSON.parse(raw) as GuestEntry) : null;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return results.filter((e): e is GuestEntry => e !== null);
   } catch {
     return [];
   }
@@ -70,14 +73,13 @@ export async function getGuestEntries(): Promise<GuestEntry[]> {
 
 export async function clearGuestData(): Promise<void> {
   const ids = await getEntryIDs();
-  for (const id of ids) {
-    try {
-      await SecureStore.deleteItemAsync(GUEST_ENTRY_PREFIX + id);
-    } catch {}
-  }
+  // Delete the index first — orphaned entries are unreachable on crash
   try {
     await SecureStore.deleteItemAsync(GUEST_ENTRY_IDS_KEY);
   } catch {}
+  await Promise.all(
+    ids.map((id) => SecureStore.deleteItemAsync(GUEST_ENTRY_PREFIX + id).catch(() => {})),
+  );
   await AsyncStorage.removeItem(GUEST_USES_KEY);
 }
 
@@ -90,21 +92,26 @@ export async function migrateGuestEntries(): Promise<number> {
   const guestEntries = await getGuestEntries();
   if (guestEntries.length === 0) return 0;
 
-  const migratedIds = new Set<string>();
-  for (const entry of guestEntries) {
-    try {
-      await api.post('/journals', {
+  const results = await Promise.allSettled(
+    guestEntries.map((entry) =>
+      api.post('/journals', {
         mood_emoji: entry.mood_emoji,
         mood_score: entry.mood_score,
         content: entry.content,
         card_color: entry.card_color,
         tags: entry.tags || [],
-      });
-      migratedIds.add(entry.id);
-    } catch {
-      // Keep failed entries for retry on next trigger
+      }),
+    ),
+  );
+
+  const migratedIds = new Set<string>();
+  results.forEach((result, i) => {
+    if (result.status === 'fulfilled') {
+      migratedIds.add(guestEntries[i].id);
+    } else {
+      console.warn('[guest] migration failed for entry', guestEntries[i].id, result.reason);
     }
-  }
+  });
 
   if (migratedIds.size === guestEntries.length) {
     await clearGuestData();
@@ -112,11 +119,11 @@ export async function migrateGuestEntries(): Promise<number> {
     const remainingIDs = guestEntries
       .filter((e) => !migratedIds.has(e.id))
       .map((e) => e.id);
-    for (const id of migratedIds) {
-      try {
-        await SecureStore.deleteItemAsync(GUEST_ENTRY_PREFIX + id);
-      } catch {}
-    }
+    await Promise.all(
+      [...migratedIds].map((id) =>
+        SecureStore.deleteItemAsync(GUEST_ENTRY_PREFIX + id).catch(() => {}),
+      ),
+    );
     await setEntryIDs(remainingIDs);
   }
 
