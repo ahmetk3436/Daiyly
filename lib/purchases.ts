@@ -5,10 +5,13 @@ let LOG_LEVEL: any = null;
 let RevenueCatUI: any = null;
 let isInitialized = false;
 
+let ENTITLEMENT_VERIFICATION_MODE: any = null;
+
 try {
   const mod = require('react-native-purchases');
   Purchases = mod.default;
   LOG_LEVEL = mod.LOG_LEVEL;
+  ENTITLEMENT_VERIFICATION_MODE = mod.ENTITLEMENT_VERIFICATION_MODE;
 } catch {
   console.warn('[Purchases] react-native-purchases not available (Expo Go?)');
 }
@@ -32,7 +35,10 @@ export const initializePurchases = async () => {
 
   try {
     Purchases.setLogLevel(LOG_LEVEL.WARN);
-    await Purchases.configure({ apiKey: API_KEY });
+    await Purchases.configure({
+      apiKey: API_KEY,
+      entitlementVerificationMode: ENTITLEMENT_VERIFICATION_MODE?.INFORMATIONAL,
+    });
     isInitialized = true;
     if (__DEV__) console.log('[Purchases] RevenueCat initialized');
   } catch (error) {
