@@ -35,10 +35,19 @@ export const initializePurchases = async () => {
 
   try {
     Purchases.setLogLevel(LOG_LEVEL.WARN);
+    // Passing undefined to entitlementVerificationMode silently defaults RevenueCat
+    // to DISABLED mode, allowing entitlement bypass via receipt tampering.
+    // Guard: only pass ENFORCED if the SDK exported the enum (handles Expo Go / old SDKs).
+    const verificationMode = ENTITLEMENT_VERIFICATION_MODE?.ENFORCED;
+    if (verificationMode == null) {
+      Sentry.captureMessage(
+        '[Purchases] ENFORCED verification mode unavailable — possible SDK version mismatch',
+        'warning',
+      );
+    }
     await Purchases.configure({
       apiKey: API_KEY,
-      // ENFORCED: signature verification failure denies the entitlement (not just logged).
-      entitlementVerificationMode: ENTITLEMENT_VERIFICATION_MODE?.ENFORCED,
+      ...(verificationMode != null && { entitlementVerificationMode: verificationMode }),
     });
     isInitialized = true;
     if (__DEV__) console.log('[Purchases] RevenueCat initialized');
