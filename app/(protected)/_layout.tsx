@@ -6,11 +6,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { useAuth } from '../../contexts/AuthContext';
 import { SubscriptionProvider } from '../../contexts/SubscriptionContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { hapticSelection } from '../../lib/haptics';
 import { authenticateWithBiometrics } from '../../lib/biometrics';
+
+// In Expo Go (dev), biometric prompts may not function correctly.
+// Skip the lock screen in dev to avoid blocking the developer workflow.
+const isExpoGo = Constants.appOwnership === 'expo';
 
 const TABS = [
   {
@@ -99,6 +104,12 @@ export default function ProtectedLayout() {
   // Check biometric lock on mount
   useEffect(() => {
     const checkBiometric = async () => {
+      // Expo Go doesn't support biometric prompts reliably — skip the lock screen in dev.
+      if (isExpoGo) {
+        setIsUnlocked(true);
+        setBiometricChecked(true);
+        return;
+      }
       try {
         const stored = await AsyncStorage.getItem('@daiyly_settings');
         if (stored) {
@@ -114,13 +125,8 @@ export default function ProtectedLayout() {
         setIsUnlocked(true);
         setBiometricChecked(true);
       } catch {
-        // Corrupted settings — safe default: assume biometric was enabled, attempt auth
-        try {
-          const success = await authenticateWithBiometrics('Unlock Daiyly');
-          setIsUnlocked(success);
-        } catch {
-          setIsUnlocked(false);
-        }
+        // Corrupted settings — default to unlocked so the user isn't permanently locked out.
+        setIsUnlocked(true);
         setBiometricChecked(true);
       }
     };
