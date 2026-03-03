@@ -14,9 +14,8 @@ import * as Sentry from '@sentry/react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../../lib/api';
-import { getGuestEntries, GUEST_ENTRIES_KEY } from '../../../lib/guest';
+import { getGuestEntries, saveGuestEntry, deleteGuestEntry } from '../../../lib/guest';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
   hapticLight,
@@ -175,7 +174,7 @@ export default function EntryDetailScreen() {
             mood_emoji: editMoodEmoji,
             card_color: editCardColor,
           };
-          await AsyncStorage.setItem(GUEST_ENTRIES_KEY, JSON.stringify(guestEntries));
+          await saveGuestEntry(guestEntries[idx]);
           setEntry(guestEntries[idx] as unknown as JournalEntry);
         }
       } else {
@@ -214,10 +213,8 @@ export default function EntryDetailScreen() {
             try {
               setDeleting(true);
               if (isGuest) {
-                // Guest mode: remove from AsyncStorage
-                const guestEntries = await getGuestEntries();
-                const filtered = guestEntries.filter((e) => e.id !== id);
-                await AsyncStorage.setItem(GUEST_ENTRIES_KEY, JSON.stringify(filtered));
+                // Guest mode: remove from SecureStore
+                await deleteGuestEntry(id as string);
               } else {
                 await api.delete(`/journals/${id}`);
               }

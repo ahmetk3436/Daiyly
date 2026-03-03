@@ -71,6 +71,12 @@ export async function getGuestEntries(): Promise<GuestEntry[]> {
   }
 }
 
+export async function deleteGuestEntry(id: string): Promise<void> {
+  await SecureStore.deleteItemAsync(GUEST_ENTRY_PREFIX + id).catch(() => {});
+  const ids = await getEntryIDs();
+  await setEntryIDs(ids.filter((existingId) => existingId !== id));
+}
+
 export async function clearGuestData(): Promise<void> {
   const ids = await getEntryIDs();
   // Delete the index first — orphaned entries are unreachable on crash
