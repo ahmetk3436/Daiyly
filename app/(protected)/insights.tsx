@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import * as Sentry from '@sentry/react-native';
 import {
   View,
@@ -7,19 +7,25 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  TextInput,
+  Share,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ExpoSharing from 'expo-sharing';
 import api from '../../lib/api';
 import { hapticLight, hapticSuccess, hapticError } from '../../lib/haptics';
 import { cacheSet, cacheGet } from '../../lib/cache';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useProGate } from '../../lib/useProGate';
 import { getGuestEntries } from '../../lib/guest';
 import CTABanner from '../../components/ui/CTABanner';
+import HealthKitInsight from '../../components/HealthKitInsight';
 import type { JournalStreak, WeeklyReport } from '../../types/journal';
 
 // Type Definitions
@@ -48,6 +54,25 @@ interface WeeklyInsights {
   longest_streak: number;
   period_start: string;
   period_end: string;
+}
+
+interface SearchResult {
+  id: string;
+  mood_emoji: string;
+  created_at: string;
+  content: string;
+}
+
+interface TherapistExportResponse {
+  ai_narrative: string;
+  suggestions: string[];
+}
+
+// Health correlation data shape (computed locally, HealthKit optional)
+interface HealthCorrelation {
+  highSleepMoodAvg: number;
+  lowSleepMoodAvg: number;
+  available: boolean;
 }
 
 // Constants
@@ -158,6 +183,7 @@ export default function InsightsScreen() {
   const { isAuthenticated } = useAuth();
   const { isSubscribed } = useSubscription();
   const { isDark } = useTheme();
+  const { requirePro } = useProGate();
 
   const [insights, setInsights] = useState<WeeklyInsights | null>(null);
   const [loading, setLoading] = useState(true);
@@ -169,6 +195,20 @@ export default function InsightsScreen() {
   const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportExpanded, setReportExpanded] = useState(false);
+
+  // Task E2: Ask Your Journal search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchSubmitted, setSearchSubmitted] = useState(false);
+  const searchInputRef = useRef<TextInput>(null);
+
+  // Task E1: Health correlation state
+  const [healthCorrelation, setHealthCorrelation] = useState<HealthCorrelation | null>(null);
+
+  // Task E3: Therapist export state
+  const [therapistLoading, setTherapistLoading] = useState(false);
 
   const getMilestoneData = (currentStreak: number) => {
     const milestones = [3, 7, 14, 21, 30, 50, 100];
@@ -220,6 +260,178 @@ export default function InsightsScreen() {
     return COLORS.error;
   };
 
+  // Task E2: Journal search handler
+  const handleSearch = useCallback(async () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+
+    const allowed = requirePro('Ask Your Journal');
+    if (!allowed) return;
+
+    hapticLight();
+    setSearchLoading(true);
+    setSearchError(null);
+    setSearchSubmitted(true);
+
+    try {
+      const res = await api.get<{ entries: SearchResult[] }>(
+        `/journals/search?q=${encodeURIComponent(q)}&semantic=true`
+      );
+      const entries = res.data?.entries ?? (res.data as any) ?? [];
+      setSearchResults(Array.isArray(entries) ? entries.slice(0, 3) : []);
+    } catch (err: any) {
+      Sentry.captureException(err);
+      setSearchResults([]);
+      setSearchError('Search failed. Try again.');
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [searchQuery, requirePro]);
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setSearchSubmitted(false);
+    setSearchError(null);
+    hapticLight();
+  }, []);
+
+  // Task E1: Attempt HealthKit data fetch — graceful degradation if unavailable
+  const fetchHealthCorrelation = useCallback(async () => {
+    // expo-health is not in package.json. We attempt a dynamic require so the
+    // app does not crash if the package is absent.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const Health = require('expo-health');
+      const { status } = await Health.requestPermissionsAsync([
+        {
+          kind: Health.HealthDataTypes.SleepAnalysis,
+          access: Health.HealthAccessTypes.Read,
+        },
+        {
+          kind: Health.HealthDataTypes.StepCount,
+          access: Health.HealthAccessTypes.Read,
+        },
+      ]);
+
+      if (status !== 'granted') {
+        setHealthCorrelation(null);
+        return;
+      }
+
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      const sleepRecords = await Health.getHealthRecordsAsync({
+        startDate: sevenDaysAgo,
+        endDate: new Date(),
+        type: Health.HealthDataTypes.SleepAnalysis,
+      });
+
+      if (!sleepRecords || sleepRecords.length === 0) {
+        setHealthCorrelation(null);
+        return;
+      }
+
+      // Map sleep records to daily sleep hours
+      const dailySleepMap: Record<string, number> = {};
+      for (const record of sleepRecords) {
+        const dateKey = new Date(record.startDate).toDateString();
+        const hours =
+          (new Date(record.endDate).getTime() -
+            new Date(record.startDate).getTime()) /
+          (1000 * 60 * 60);
+        dailySleepMap[dateKey] = (dailySleepMap[dateKey] ?? 0) + hours;
+      }
+
+      // Cross-reference with journal daily scores if available
+      const dailyScores = insights?.daily_scores ?? [];
+      if (dailyScores.length === 0) {
+        setHealthCorrelation(null);
+        return;
+      }
+
+      const highSleepScores: number[] = [];
+      const lowSleepScores: number[] = [];
+
+      for (const dayScore of dailyScores) {
+        const key = new Date(dayScore.date).toDateString();
+        const sleepHrs = dailySleepMap[key] ?? 0;
+        if (sleepHrs >= 7) {
+          highSleepScores.push(dayScore.score);
+        } else if (sleepHrs > 0) {
+          lowSleepScores.push(dayScore.score);
+        }
+      }
+
+      if (highSleepScores.length === 0 && lowSleepScores.length === 0) {
+        setHealthCorrelation(null);
+        return;
+      }
+
+      const avg = (arr: number[]) =>
+        arr.length > 0
+          ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length)
+          : 0;
+
+      setHealthCorrelation({
+        highSleepMoodAvg: avg(highSleepScores),
+        lowSleepMoodAvg: avg(lowSleepScores),
+        available: true,
+      });
+    } catch {
+      // expo-health not installed, permission denied, or unsupported platform
+      setHealthCorrelation(null);
+    }
+  }, [insights?.daily_scores]);
+
+  // Task E3: Therapist report export
+  const handleTherapistExport = useCallback(async () => {
+    const allowed = requirePro('Therapist Report');
+    if (!allowed) return;
+
+    hapticLight();
+    setTherapistLoading(true);
+
+    try {
+      const res = await api.get<TherapistExportResponse>(
+        '/journals/therapist-export'
+      );
+      const { ai_narrative, suggestions } = res.data;
+
+      const suggestionText =
+        suggestions && suggestions.length > 0
+          ? '\n\nSuggestions:\n' + suggestions.map((s) => `- ${s}`).join('\n')
+          : '';
+
+      const shareText = `My Daiyly Journal Report\n\n${ai_narrative}${suggestionText}`;
+
+      hapticSuccess();
+
+      const sharingAvailable = await ExpoSharing.isAvailableAsync();
+      if (sharingAvailable) {
+        // Write to a temp file for expo-sharing to pick up as an attachment
+        const { FileSystem } = await import('expo-file-system');
+        const fileUri =
+          FileSystem.cacheDirectory + 'daiyly-therapist-report.txt';
+        await FileSystem.writeAsStringAsync(fileUri, shareText);
+        await ExpoSharing.shareAsync(fileUri, {
+          mimeType: 'text/plain',
+          dialogTitle: 'Share Therapist Report',
+        });
+      } else {
+        await Share.share({
+          message: shareText,
+          title: 'My Daiyly Journal Report',
+        });
+      }
+    } catch (err: any) {
+      Sentry.captureException(err);
+      hapticError();
+    } finally {
+      setTherapistLoading(false);
+    }
+  }, [requirePro]);
+
   const fetchInsights = useCallback(async () => {
     try {
       setError(null);
@@ -235,6 +447,11 @@ export default function InsightsScreen() {
         // Cache for offline
         cacheSet('insights_data', response.data);
         cacheSet('insights_streak', streakRes.data);
+
+        // Task E1: Attempt HealthKit correlation (fire-and-forget, no await)
+        if (Platform.OS === 'ios') {
+          fetchHealthCorrelation();
+        }
 
         // Fetch AI weekly report
         setReportLoading(true);
@@ -271,7 +488,7 @@ export default function InsightsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchHealthCorrelation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -447,6 +664,143 @@ export default function InsightsScreen() {
           </View>
         )}
 
+        {/* Task E2: Ask Your Journal — always-visible semantic search */}
+        {isAuthenticated && (
+          <View className="mx-5 mt-4">
+            {/* Search bar */}
+            <View
+              className="flex-row items-center rounded-2xl border px-4 py-3"
+              style={{
+                backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
+                borderColor: isDark ? '#334155' : '#E2E8F0',
+              }}
+            >
+              <Ionicons
+                name="search"
+                size={18}
+                color={isDark ? '#64748B' : '#94A3B8'}
+              />
+              <TextInput
+                ref={searchInputRef}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onSubmitEditing={handleSearch}
+                returnKeyType="search"
+                placeholder="Ask anything... e.g. 'What made me happy this month?'"
+                placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                className="flex-1 ml-2 text-sm text-text-primary"
+                style={{ paddingVertical: 0 }}
+              />
+              {searchQuery.length > 0 ? (
+                <Pressable onPress={clearSearch} hitSlop={8}>
+                  <Ionicons
+                    name="close-circle"
+                    size={18}
+                    color={isDark ? '#64748B' : '#94A3B8'}
+                  />
+                </Pressable>
+              ) : (
+                <Ionicons
+                  name="mic-outline"
+                  size={18}
+                  color={isDark ? '#64748B' : '#94A3B8'}
+                />
+              )}
+            </View>
+
+            {/* Label below search bar */}
+            <View className="flex-row items-center mt-1.5 px-1">
+              <Ionicons name="sparkles" size={12} color="#8B5CF6" />
+              <Text className="text-xs text-text-muted ml-1">
+                Ask Your Journal
+              </Text>
+              {!isSubscribed && (
+                <View
+                  className="rounded-full px-2 py-0.5 ml-2"
+                  style={{ backgroundColor: isDark ? '#2E1065' : '#F3E8FF' }}
+                >
+                  <Text className="text-[10px] font-bold" style={{ color: '#8B5CF6' }}>
+                    PRO
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Search loading */}
+            {searchLoading && (
+              <View className="mt-3 items-center py-4">
+                <ActivityIndicator size="small" color={COLORS.primary} />
+                <Text className="text-xs text-text-muted mt-2">
+                  Searching your entries...
+                </Text>
+              </View>
+            )}
+
+            {/* Search error */}
+            {!searchLoading && searchError && (
+              <View className="mt-2 px-1">
+                <Text className="text-xs text-red-500">{searchError}</Text>
+              </View>
+            )}
+
+            {/* No results message */}
+            {!searchLoading &&
+              searchSubmitted &&
+              !searchError &&
+              searchResults.length === 0 && (
+                <View className="mt-3 px-1">
+                  <Text className="text-xs text-text-muted">
+                    No entries matching this. Try 'anxious' or 'grateful'
+                  </Text>
+                </View>
+              )}
+
+            {/* Search results */}
+            {!searchLoading && searchResults.length > 0 && (
+              <View className="mt-3" style={{ gap: 8 }}>
+                {searchResults.map((result) => (
+                  <Pressable
+                    key={result.id}
+                    onPress={() => {
+                      hapticLight();
+                      router.push(
+                        `/(protected)/entry/${result.id}` as any
+                      );
+                    }}
+                    className="flex-row items-start rounded-xl border px-4 py-3 active:opacity-75"
+                    style={{
+                      backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                      borderColor: isDark ? '#334155' : '#E2E8F0',
+                    }}
+                  >
+                    <Text className="text-xl mr-3">{result.mood_emoji || '\u{1F4DD}'}</Text>
+                    <View className="flex-1">
+                      <Text className="text-xs text-text-muted mb-0.5">
+                        {new Date(result.created_at).toLocaleDateString(
+                          'en-US',
+                          { month: 'short', day: 'numeric', year: 'numeric' }
+                        )}
+                      </Text>
+                      <Text
+                        className="text-sm text-text-primary"
+                        numberOfLines={2}
+                      >
+                        {result.content?.slice(0, 100) ?? ''}
+                        {(result.content?.length ?? 0) > 100 ? '…' : ''}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color={isDark ? '#64748B' : '#9CA3AF'}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
         <View className="px-5 mt-4">
           {/* AI Weekly Summary */}
           {isAuthenticated && (
@@ -618,6 +972,84 @@ export default function InsightsScreen() {
             ))}
           </View>
 
+          {/* HealthKit Sleep vs Mood card — iOS only, hides itself when unavailable */}
+          {isAuthenticated && <HealthKitInsight />}
+
+          {/* Task E1: Sleep & Mood Correlation (HealthKit) — shown only when data available */}
+          {isAuthenticated && healthCorrelation?.available && (
+            <View className="bg-surface-elevated rounded-2xl p-5 mb-3 border border-border">
+              <View className="flex-row items-center mb-4">
+                <View
+                  className="w-9 h-9 rounded-full items-center justify-center mr-3"
+                  style={{ backgroundColor: isDark ? '#0C4A6E' : '#E0F2FE' }}
+                >
+                  <Ionicons name="moon-outline" size={18} color="#0EA5E9" />
+                </View>
+                <View>
+                  <Text className="text-base font-bold text-text-primary">
+                    Sleep & Mood Correlation
+                  </Text>
+                  <Text className="text-xs text-text-muted">
+                    Last 7 days — from Apple Health
+                  </Text>
+                </View>
+              </View>
+
+              <Text className="text-sm text-text-secondary mb-4 leading-relaxed">
+                {`On days you slept 7+ hours, your mood averaged ${healthCorrelation.highSleepMoodAvg} vs ${healthCorrelation.lowSleepMoodAvg} on low-sleep days.`}
+              </Text>
+
+              {/* Simple side-by-side bar comparison */}
+              <View className="flex-row items-end justify-around" style={{ gap: 16 }}>
+                {/* High sleep bar */}
+                <View className="items-center flex-1">
+                  <Text
+                    className="text-xs font-bold mb-1"
+                    style={{ color: COLORS.success }}
+                  >
+                    {healthCorrelation.highSleepMoodAvg}
+                  </Text>
+                  <View
+                    className="w-full rounded-t-lg"
+                    style={{
+                      height: Math.max(
+                        (healthCorrelation.highSleepMoodAvg / 100) * 80,
+                        4
+                      ),
+                      backgroundColor: COLORS.success,
+                    }}
+                  />
+                  <Text className="text-[10px] text-text-muted mt-2 text-center font-medium">
+                    {'\u{1F634}'} 7+ hrs
+                  </Text>
+                </View>
+
+                {/* Low sleep bar */}
+                <View className="items-center flex-1">
+                  <Text
+                    className="text-xs font-bold mb-1"
+                    style={{ color: COLORS.warning }}
+                  >
+                    {healthCorrelation.lowSleepMoodAvg}
+                  </Text>
+                  <View
+                    className="w-full rounded-t-lg"
+                    style={{
+                      height: Math.max(
+                        (healthCorrelation.lowSleepMoodAvg / 100) * 80,
+                        4
+                      ),
+                      backgroundColor: COLORS.warning,
+                    }}
+                  />
+                  <Text className="text-[10px] text-text-muted mt-2 text-center font-medium">
+                    {'\u{1F62A}'} {'<'}7 hrs
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
           {/* 7-Day Mood Chart */}
           {isAuthenticated &&
             insights.daily_scores &&
@@ -709,11 +1141,22 @@ export default function InsightsScreen() {
           <View className="bg-surface-elevated rounded-2xl p-5 mb-3 border border-border">
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center">
-                <Text className="text-3xl">{'\u{1F525}'}</Text>
+                <Text className="text-3xl">
+                  {(streak?.grace_period_active || streak?.grace_active) ? '\u{1F9CA}' : '\u{1F525}'}
+                </Text>
                 <View className="ml-2">
-                  <Text className="text-2xl font-bold text-text-primary">
-                    Day {currentStreak}
-                  </Text>
+                  <View className="flex-row items-center">
+                    <Text className="text-2xl font-bold text-text-primary">
+                      Day {currentStreak}
+                    </Text>
+                    {(streak?.grace_period_active || streak?.grace_active) && (
+                      <View className="ml-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-full px-2 py-0.5">
+                        <Text className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-300">
+                          Freeze active
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   <Text className="text-xs text-text-muted">
                     Current streak
                   </Text>
@@ -761,6 +1204,15 @@ export default function InsightsScreen() {
                 {totalEntries} total entries
               </Text>
             </View>
+
+            {(streak?.grace_period_active || streak?.grace_active) && (
+              <View className="mt-3 flex-row items-start bg-indigo-50 dark:bg-indigo-900/20 rounded-xl px-3 py-2.5 border border-indigo-100 dark:border-indigo-800">
+                <Text className="text-sm mr-1.5">{'\u2744\uFE0F'}</Text>
+                <Text className="text-xs text-indigo-700 dark:text-indigo-300 flex-1 leading-relaxed">
+                  You haven't journaled today but your streak is protected for 1 more day.
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Share Insights CTA */}
@@ -1011,6 +1463,78 @@ export default function InsightsScreen() {
                 />
               </View>
             )}
+
+          {/* Task E3: Therapist Report — premium export card */}
+          {isAuthenticated && (
+            <View className="bg-surface-elevated rounded-2xl p-5 mb-3 border border-border">
+              <View className="flex-row items-center mb-3">
+                <View
+                  className="w-10 h-10 rounded-full items-center justify-center mr-3"
+                  style={{ backgroundColor: isDark ? '#064E3B' : '#ECFDF5' }}
+                >
+                  <Ionicons
+                    name="document-text-outline"
+                    size={20}
+                    color={COLORS.success}
+                  />
+                </View>
+                <View className="flex-1">
+                  <View className="flex-row items-center">
+                    <Text className="text-base font-bold text-text-primary">
+                      Therapist Report
+                    </Text>
+                    {!isSubscribed && (
+                      <View
+                        className="rounded-full px-2 py-0.5 ml-2"
+                        style={{
+                          backgroundColor: isDark ? '#2E1065' : '#F3E8FF',
+                        }}
+                      >
+                        <Text
+                          className="text-[10px] font-bold"
+                          style={{ color: '#8B5CF6' }}
+                        >
+                          PRO
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text className="text-xs text-text-muted mt-0.5">
+                    Share a 30-day AI summary with your therapist
+                  </Text>
+                </View>
+              </View>
+
+              <Pressable
+                onPress={handleTherapistExport}
+                disabled={therapistLoading}
+                className="rounded-xl py-3 items-center justify-center active:opacity-75"
+                style={{ backgroundColor: COLORS.success }}
+              >
+                {therapistLoading ? (
+                  <View className="flex-row items-center" style={{ gap: 8 }}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text className="text-white font-semibold text-sm">
+                      Generating...
+                    </Text>
+                  </View>
+                ) : (
+                  <View className="flex-row items-center" style={{ gap: 8 }}>
+                    <Ionicons name="share-outline" size={18} color="#FFFFFF" />
+                    <Text className="text-white font-semibold text-sm">
+                      Generate Report
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+
+              {therapistLoading && (
+                <Text className="text-xs text-text-muted text-center mt-2">
+                  AI is reviewing your entries — this can take up to 30 seconds
+                </Text>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Bottom Spacing */}

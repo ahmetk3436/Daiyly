@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,10 @@ import {
   Pressable,
   RefreshControl,
   ActivityIndicator,
+  Animated,
+  Modal,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -70,6 +73,7 @@ interface DisplayEntry {
   mood_score: number;
   content: string;
   card_color: string;
+  photo_url?: string;
   created_at: string;
 }
 
@@ -83,8 +87,33 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isStale, setIsStale] = useState(false);
+  const [streakCelebration, setStreakCelebration] = useState(false);
+  const [celebrationStreak, setCelebrationStreak] = useState(0);
+  const celebrationScale = useRef(new Animated.Value(0)).current;
+  const celebrationOpacity = useRef(new Animated.Value(0)).current;
 
   const userName = user?.email?.split('@')[0] || 'there';
+
+  // Animate celebration in when streakCelebration becomes true
+  useEffect(() => {
+    if (streakCelebration) {
+      celebrationScale.setValue(0);
+      celebrationOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(celebrationScale, {
+          toValue: 1,
+          friction: 4,
+          tension: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(celebrationOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [streakCelebration]);
 
   const fetchHomeData = useCallback(async () => {
     try {
@@ -102,6 +131,7 @@ export default function HomeScreen() {
             mood_score: e.mood_score,
             content: e.content,
             card_color: e.card_color,
+            photo_url: e.photo_url || undefined,
             created_at: e.created_at,
           })
         );
@@ -114,6 +144,15 @@ export default function HomeScreen() {
         const cs = streakRes.data?.current_streak || 0;
         if (cs > 0 && STREAK_MILESTONES.includes(cs)) {
           maybeRequestReview('streak_milestone').catch(() => {});
+        }
+
+        // Celebration animation for key milestones
+        const CELEBRATION_MILESTONES = [3, 7, 30, 100];
+        if (cs > 0 && CELEBRATION_MILESTONES.includes(cs)) {
+          hapticSuccess();
+          setCelebrationStreak(cs);
+          setStreakCelebration(true);
+          setTimeout(() => setStreakCelebration(false), 3000);
         }
 
         // Cache for offline use
@@ -260,10 +299,19 @@ export default function HomeScreen() {
                 }}
                 className="flex-row items-center bg-amber-50 dark:bg-amber-900/30 rounded-full px-3 py-1.5 border border-amber-200 dark:border-amber-700"
               >
-                <Text className="text-lg mr-1">{'\u{1F525}'}</Text>
+                <Text className="text-lg mr-1">
+                  {(streak?.grace_period_active || streak?.grace_active) ? '\u{1F9CA}' : '\u{1F525}'}
+                </Text>
                 <Text className="text-sm font-bold text-amber-700 dark:text-amber-400">
                   {currentStreak}
                 </Text>
+                {(streak?.grace_period_active || streak?.grace_active) && (
+                  <View className="ml-1.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full px-1.5 py-0.5">
+                    <Text className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-300">
+                      Freeze active
+                    </Text>
+                  </View>
+                )}
               </Pressable>
             )}
           </View>
@@ -275,6 +323,16 @@ export default function HomeScreen() {
             <Ionicons name="cloud-offline-outline" size={14} color="#D97706" />
             <Text className="text-xs text-amber-700 dark:text-amber-400 ml-2">
               Showing cached data — pull to refresh
+            </Text>
+          </View>
+        )}
+
+        {/* Grace Period Banner */}
+        {(streak?.grace_period_active || streak?.grace_active) && (
+          <View className="mx-6 mt-2 bg-amber-50 dark:bg-amber-900/20 rounded-xl px-4 py-2.5 flex-row items-center border border-amber-300 dark:border-amber-700">
+            <Text className="text-base mr-2">{'\u26A1'}</Text>
+            <Text className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex-1">
+              Streak Grace Active — Write today to keep your {currentStreak}-day streak!
             </Text>
           </View>
         )}
@@ -486,6 +544,17 @@ export default function HomeScreen() {
                   </Text>
                 </View>
 
+                {/* Photo thumbnail */}
+                {entry.photo_url ? (
+                  <Image
+                    source={{ uri: entry.photo_url }}
+                    style={{ width: 60, height: 60, borderRadius: 8, marginLeft: 8 }}
+                    contentFit="cover"
+                    placeholder="LGF5?xYk^6#M@-5c,1J5@[or[Q6."
+                    transition={200}
+                  />
+                ) : null}
+
                 {/* Score badge */}
                 <View
                   className="rounded-full px-2 py-0.5 ml-2"
@@ -508,6 +577,58 @@ export default function HomeScreen() {
         {/* Bottom spacing for tab bar */}
         <View className="h-24" />
       </ScrollView>
+
+      {/* Streak Celebration Modal */}
+      <Modal
+        visible={streakCelebration}
+        transparent
+        animationType="none"
+        onRequestClose={() => setStreakCelebration(false)}
+      >
+        <Animated.View
+          style={{ opacity: celebrationOpacity }}
+          className="flex-1 items-center justify-center"
+          pointerEvents="box-none"
+        >
+          <View
+            className="absolute inset-0"
+            style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+          />
+          <Pressable
+            className="absolute inset-0"
+            onPress={() => setStreakCelebration(false)}
+          />
+          <Animated.View
+            style={{ transform: [{ scale: celebrationScale }] }}
+            className="bg-background rounded-3xl items-center px-10 py-10 mx-8"
+            pointerEvents="box-none"
+          >
+            <Text style={{ fontSize: 72, lineHeight: 88 }}>
+              {'\u{1F525}'}
+            </Text>
+            <Text className="text-2xl font-bold text-text-primary mt-3 text-center">
+              {celebrationStreak}-Day Streak!
+            </Text>
+            <Text className="text-sm text-text-secondary mt-2 text-center">
+              {celebrationStreak === 3
+                ? "You're building a habit. Keep going!"
+                : celebrationStreak === 7
+                ? "One full week of journaling. Incredible!"
+                : celebrationStreak === 30
+                ? "30 days strong. You're unstoppable."
+                : "100 days! A true journaling master."}
+            </Text>
+            <Pressable
+              onPress={() => setStreakCelebration(false)}
+              className="mt-6 bg-amber-500 rounded-2xl px-8 py-3"
+            >
+              <Text className="text-white font-bold text-base">
+                Keep it up!
+              </Text>
+            </Pressable>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
     </SafeAreaView>
   );
 }

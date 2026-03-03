@@ -5,6 +5,8 @@ export interface JournalEntry {
   mood_score: number;
   content: string;
   photo_url: string;
+  audio_url?: string;
+  transcript?: string;
   card_color: string;
   tags?: string[];
   entry_date: string;
@@ -20,6 +22,8 @@ export interface JournalStreak {
   longest_streak: number;
   total_entries: number;
   last_entry_date: string;
+  grace_period_active?: boolean;
+  grace_active?: boolean;
 }
 
 export interface JournalListResponse {

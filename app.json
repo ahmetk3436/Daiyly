@@ -17,6 +17,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.ahmetkizilkaya.daiyly",
       "associatedDomains": ["applinks:vexellabspro.com"],
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Daiyly reads your sleep data to show correlations with your journal mood.",
+        "NSHealthUpdateUsageDescription": "Daiyly does not write health data."
+      },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
           {

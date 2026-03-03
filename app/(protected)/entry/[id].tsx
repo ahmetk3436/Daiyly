@@ -9,7 +9,10 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Dimensions,
 } from 'react-native';
+import { Image } from 'expo-image';
 import * as Sentry from '@sentry/react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -95,6 +98,8 @@ export default function EntryDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [photoFullscreen, setPhotoFullscreen] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
 
   const fetchEntry = useCallback(async () => {
     try {
@@ -361,6 +366,53 @@ export default function EntryDetailScreen() {
           {/* VIEW MODE */}
           {!isEditing && (
             <>
+              {/* Full-width Photo */}
+              {entry.photo_url ? (
+                <>
+                  <Pressable
+                    onPress={() => setPhotoFullscreen(true)}
+                    className="mb-4 rounded-2xl overflow-hidden"
+                    style={{ aspectRatio: 16 / 9 }}
+                  >
+                    <Image
+                      source={{ uri: entry.photo_url }}
+                      style={{ width: '100%', height: '100%' }}
+                      contentFit="cover"
+                      placeholder="LGF5?xYk^6#M@-5c,1J5@[or[Q6."
+                      transition={200}
+                    />
+                  </Pressable>
+
+                  {/* Photo Fullscreen Modal */}
+                  <Modal
+                    visible={photoFullscreen}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setPhotoFullscreen(false)}
+                  >
+                    <Pressable
+                      className="flex-1 items-center justify-center"
+                      style={{ backgroundColor: 'rgba(0,0,0,0.92)' }}
+                      onPress={() => setPhotoFullscreen(false)}
+                    >
+                      <Image
+                        source={{ uri: entry.photo_url }}
+                        style={{
+                          width: Dimensions.get('window').width,
+                          height: Dimensions.get('window').width,
+                        }}
+                        contentFit="contain"
+                        placeholder="LGF5?xYk^6#M@-5c,1J5@[or[Q6."
+                        transition={200}
+                      />
+                      <Text className="text-white text-sm mt-4 opacity-60">
+                        Tap anywhere to close
+                      </Text>
+                    </Pressable>
+                  </Modal>
+                </>
+              ) : null}
+
               {/* Shareable MoodCard Preview */}
               <View className="items-center mb-5">
                 <ShareableMoodCard
@@ -447,6 +499,40 @@ export default function EntryDetailScreen() {
                     </Text>
                   )}
               </View>
+
+              {/* Voice Transcript Section */}
+              {entry.transcript ? (
+                <View className="bg-surface-elevated rounded-2xl border border-border mb-4 overflow-hidden">
+                  <Pressable
+                    onPress={() => {
+                      hapticLight();
+                      setTranscriptOpen((prev) => !prev);
+                    }}
+                    className="flex-row items-center justify-between px-5 py-4"
+                  >
+                    <View className="flex-row items-center" style={{ gap: 10 }}>
+                      <View className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 items-center justify-center">
+                        <Ionicons name="mic" size={16} color="#2563EB" />
+                      </View>
+                      <Text className="text-sm font-semibold text-text-primary">
+                        Voice Transcript
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name={transcriptOpen ? 'chevron-up' : 'chevron-down'}
+                      size={18}
+                      color={isDark ? '#64748B' : '#9CA3AF'}
+                    />
+                  </Pressable>
+                  {transcriptOpen && (
+                    <View className="px-5 pb-4 border-t border-border">
+                      <Text className="text-sm text-text-secondary leading-6 mt-3">
+                        {entry.transcript}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ) : null}
 
               {/* Share CTA (authenticated only) */}
               {!isGuest && (

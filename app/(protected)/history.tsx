@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +29,7 @@ interface DisplayEntry {
   mood_score: number;
   content: string;
   card_color: string;
+  photo_url?: string;
   entry_date: string;
   created_at: string;
 }
@@ -120,6 +122,7 @@ export default function HistoryScreen() {
             mood_score: e.mood_score,
             content: e.content,
             card_color: e.card_color,
+            photo_url: e.photo_url || undefined,
             entry_date: e.entry_date,
             created_at: e.created_at,
           })
@@ -285,6 +288,17 @@ export default function HistoryScreen() {
             <Ionicons name="chevron-forward" size={14} color={isDark ? '#475569' : '#D1D5DB'} />
           </View>
         </View>
+
+        {/* Photo Thumbnail */}
+        {item.photo_url ? (
+          <Image
+            source={{ uri: item.photo_url }}
+            style={{ width: 60, height: 60, borderRadius: 8, marginLeft: 8, alignSelf: 'center' }}
+            contentFit="cover"
+            placeholder="LGF5?xYk^6#M@-5c,1J5@[or[Q6."
+            transition={200}
+          />
+        ) : null}
       </View>
     </Pressable>
   );

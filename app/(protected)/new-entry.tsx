@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,18 +9,21 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Sentry from '@sentry/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import { Audio } from 'expo-av';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import api from '../../lib/api';
 import {
   saveGuestEntry,
-  getGuestEntries,
   hasGuestUsesRemaining,
   incrementGuestUses,
 } from '../../lib/guest';
@@ -61,6 +64,67 @@ const ACTIVITY_TAGS = [
 
 const DRAFT_KEY = '@daiyly_draft';
 
+type QuickEntryMode = 'free' | 'gratitude' | 'oneline' | 'reflect';
+
+const QUICK_ENTRY_MODES: {
+  id: QuickEntryMode;
+  label: string;
+  emoji: string;
+  color: string;
+  bgClass: string;
+  selectedBgClass: string;
+  selectedTextClass: string;
+  scaffold: string | null;
+}[] = [
+  {
+    id: 'free',
+    label: 'Free Write',
+    emoji: '\u2736',
+    color: '#64748B',
+    bgClass: 'bg-slate-100 dark:bg-slate-800',
+    selectedBgClass: 'bg-slate-200 dark:bg-slate-700',
+    selectedTextClass: 'text-slate-700 dark:text-slate-200',
+    scaffold: null,
+  },
+  {
+    id: 'gratitude',
+    label: 'Gratitude',
+    emoji: '\u{1F64F}',
+    color: '#D97706',
+    bgClass: 'bg-amber-50 dark:bg-amber-900/30',
+    selectedBgClass: 'bg-amber-100 dark:bg-amber-800/50',
+    selectedTextClass: 'text-amber-800 dark:text-amber-300',
+    scaffold: "Today I'm grateful for: ",
+  },
+  {
+    id: 'oneline',
+    label: 'One Line',
+    emoji: '\u270F\uFE0F',
+    color: '#2563EB',
+    bgClass: 'bg-blue-50 dark:bg-blue-900/30',
+    selectedBgClass: 'bg-blue-100 dark:bg-blue-800/50',
+    selectedTextClass: 'text-blue-800 dark:text-blue-300',
+    scaffold: '',
+  },
+  {
+    id: 'reflect',
+    label: 'Reflect',
+    emoji: '\u{1F4AD}',
+    color: '#7C3AED',
+    bgClass: 'bg-violet-50 dark:bg-violet-900/30',
+    selectedBgClass: 'bg-violet-100 dark:bg-violet-800/50',
+    selectedTextClass: 'text-violet-800 dark:text-violet-300',
+    scaffold:
+      "Today's highlight: \n\nSomething I want to remember: \n\nHow I'm feeling: ",
+  },
+];
+
+const ENCOURAGING_PROMPTS = [
+  'Every entry matters, no matter how short.',
+  'You\u2019re building a habit that future you will thank you for.',
+  'No judgment here. Just write.',
+];
+
 interface DraftData {
   selectedMood: string | null;
   moodScore: number;
@@ -68,7 +132,15 @@ interface DraftData {
   content: string;
   cardColor: string;
   selectedTags: string[];
+  photoUri: string | null;
+  audioUri: string | null;
   savedAt: string;
+}
+
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
 export default function NewEntryScreen() {
@@ -82,15 +154,48 @@ export default function NewEntryScreen() {
   const [moodScore, setMoodScore] = useState<number>(60);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [cardColor, setCardColor] = useState('#6366F1');
+  // Default must be in the CARD_COLORS allowlist (must match backend daiyly/models.go CardColors).
+  // '#6366F1' is NOT in the allowlist and would cause a 400 on save.
+  const [cardColor, setCardColor] = useState(CARD_COLORS[1]); // '#dbeafe' — blue pastel
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const draftTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const contentInputRef = useRef<TextInput>(null);
+
+  // Quick entry mode
+  const [quickMode, setQuickMode] = useState<QuickEntryMode>('free');
+
+  // Rotating encouraging subtitle (random on mount)
+  const encouragingPrompt = useMemo(
+    () => ENCOURAGING_PROMPTS[Math.floor(Math.random() * ENCOURAGING_PROMPTS.length)],
+    []
+  );
+
+  // Photo state
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoFullscreen, setPhotoFullscreen] = useState(false);
+
+  // Voice state
+  const [audioUri, setAudioUri] = useState<string | null>(null);
+  const [transcriptText, setTranscriptText] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [amplitudeHistory, setAmplitudeHistory] = useState<number[]>(Array(30).fill(0.1));
+  const [recordedAmplitudes, setRecordedAmplitudes] = useState<number[]>([]);
+  const [playbackPosition, setPlaybackPosition] = useState(0);
+  const [playbackDuration, setPlaybackDuration] = useState(0);
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const durationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const meteringTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Restore draft on mount
   useEffect(() => {
-    if (params.quickMood) return; // Skip draft restore if quick mood was tapped
+    if (params.quickMood) return;
     AsyncStorage.getItem(DRAFT_KEY).then((raw) => {
       if (!raw) return;
       try {
@@ -102,12 +207,27 @@ export default function NewEntryScreen() {
           setContent(draft.content);
           setCardColor(draft.cardColor);
           setSelectedTags(draft.selectedTags || []);
+          if (draft.photoUri) setPhotoUri(draft.photoUri);
+          if (draft.audioUri) setAudioUri(draft.audioUri);
           setDraftRestored(true);
-          // Auto-hide indicator after 3s
           setTimeout(() => setDraftRestored(false), 3000);
         }
       } catch {}
     }).catch(() => {});
+  }, []);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+      }
+      if (soundRef.current) {
+        soundRef.current.unloadAsync().catch(() => {});
+      }
+      if (durationTimerRef.current) clearInterval(durationTimerRef.current);
+      if (meteringTimerRef.current) clearInterval(meteringTimerRef.current);
+    };
   }, []);
 
   // Debounced draft save
@@ -116,13 +236,13 @@ export default function NewEntryScreen() {
     draftTimerRef.current = setTimeout(() => {
       const draft: DraftData = {
         selectedMood, moodScore, title, content, cardColor, selectedTags,
+        photoUri, audioUri,
         savedAt: new Date().toISOString(),
       };
       AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft)).catch(() => {});
     }, 1000);
-  }, [selectedMood, moodScore, title, content, cardColor, selectedTags]);
+  }, [selectedMood, moodScore, title, content, cardColor, selectedTags, photoUri, audioUri]);
 
-  // Trigger draft save on any change
   useEffect(() => {
     saveDraft();
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
@@ -168,6 +288,302 @@ export default function NewEntryScreen() {
     );
   };
 
+  const handleQuickMode = (mode: QuickEntryMode) => {
+    hapticSelection();
+    setQuickMode(mode);
+    const modeData = QUICK_ENTRY_MODES.find((m) => m.id === mode);
+    if (modeData && modeData.scaffold !== null) {
+      setContent(modeData.scaffold);
+    } else if (mode === 'free') {
+      setContent('');
+    }
+    // Focus the content input after a brief delay to allow state update
+    setTimeout(() => {
+      contentInputRef.current?.focus();
+    }, 100);
+  };
+
+  // --- Photo Picker ---
+  const handlePhotoPress = () => {
+    hapticLight();
+    Alert.alert('Add Photo', 'Choose a source', [
+      { text: 'Camera', onPress: () => pickPhoto('camera') },
+      { text: 'Gallery', onPress: () => pickPhoto('gallery') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const pickPhoto = async (source: 'camera' | 'gallery') => {
+    try {
+      let result: ImagePicker.ImagePickerResult;
+
+      if (source === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Required', 'Camera access is needed to take photos.');
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          quality: 0.8,
+          allowsEditing: true,
+          aspect: [1, 1],
+        });
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Required', 'Photo library access is needed to pick photos.');
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          quality: 0.8,
+          allowsEditing: true,
+          aspect: [1, 1],
+        });
+      }
+
+      if (!result.canceled && result.assets.length > 0) {
+        hapticSuccess();
+        setPhotoUri(result.assets[0].uri);
+        setPhotoUrl(null);
+      }
+    } catch (err) {
+      Sentry.captureException(err);
+      hapticError();
+      Alert.alert('Error', 'Failed to pick photo. Please try again.');
+    }
+  };
+
+  const removePhoto = () => {
+    hapticLight();
+    setPhotoUri(null);
+    setPhotoUrl(null);
+  };
+
+  const uploadPhoto = async (uri: string): Promise<string> => {
+    // Derive MIME type and extension from the URI so the backend Content-Type
+    // header matches the actual file bytes and passes magic-byte validation.
+    // Expo ImagePicker returns URIs ending in .heic, .jpg, .png, or .webp.
+    const lower = uri.toLowerCase();
+    let mimeType = 'image/jpeg';
+    let fileName = 'photo.jpg';
+    if (lower.endsWith('.png')) {
+      mimeType = 'image/png';
+      fileName = 'photo.png';
+    } else if (lower.endsWith('.webp')) {
+      mimeType = 'image/webp';
+      fileName = 'photo.webp';
+    } else if (lower.endsWith('.heic') || lower.endsWith('.heif')) {
+      mimeType = 'image/heic';
+      fileName = 'photo.heic';
+    }
+
+    const formData = new FormData();
+    formData.append('photo', {
+      uri,
+      type: mimeType,
+      name: fileName,
+    } as any);
+    const { data } = await api.post('/journals/upload-photo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data.url;
+  };
+
+  // --- Voice Recording ---
+  const handleVoicePress = async () => {
+    if (isRecording) {
+      await stopRecording();
+    } else if (!audioUri) {
+      await startRecording();
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Microphone access is needed to record voice notes.');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const recording = new Audio.Recording();
+      const recordingOptions: Audio.RecordingOptions = {
+        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        isMeteringEnabled: true,
+      };
+      await recording.prepareToRecordAsync(recordingOptions);
+      await recording.startAsync();
+      recordingRef.current = recording;
+
+      setIsRecording(true);
+      setRecordingDuration(0);
+      hapticMedium();
+
+      durationTimerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+
+      // Start metering polling
+      meteringTimerRef.current = setInterval(async () => {
+        if (!recordingRef.current) return;
+        try {
+          const status = await recordingRef.current.getStatusAsync();
+          if (status.isRecording && status.metering !== undefined) {
+            // Map dB (-60 to 0) to amplitude (0.05 to 1.0)
+            const db = status.metering; // typically -160 to 0 on iOS
+            const normalized = Math.max(0.05, Math.min(1.0, (db + 60) / 60));
+            setAmplitudeHistory(prev => {
+              const next = [...prev.slice(1), normalized];
+              return next;
+            });
+          }
+        } catch {}
+      }, 80);
+    } catch (err) {
+      Sentry.captureException(err);
+      hapticError();
+      Alert.alert('Error', 'Could not start recording. Please try again.');
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      if (durationTimerRef.current) {
+        clearInterval(durationTimerRef.current);
+        durationTimerRef.current = null;
+      }
+
+      if (meteringTimerRef.current) {
+        clearInterval(meteringTimerRef.current);
+        meteringTimerRef.current = null;
+      }
+
+      if (!recordingRef.current) return;
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      recordingRef.current = null;
+
+      setIsRecording(false);
+      hapticMedium();
+
+      if (uri) {
+        setAudioUri(uri);
+        // Snapshot the waveform for playback display
+        setAmplitudeHistory(prev => {
+          setRecordedAmplitudes(prev);
+          return Array(30).fill(0.1);
+        });
+      }
+
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+    } catch (err) {
+      Sentry.captureException(err);
+      hapticError();
+      setIsRecording(false);
+    }
+  };
+
+  const handlePlayPause = async () => {
+    if (!audioUri) return;
+
+    try {
+      if (isPlaying) {
+        if (soundRef.current) {
+          await soundRef.current.pauseAsync();
+          setIsPlaying(false);
+        }
+      } else {
+        if (soundRef.current) {
+          await soundRef.current.unloadAsync();
+          soundRef.current = null;
+        }
+
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: audioUri },
+          { shouldPlay: true },
+          (status) => {
+            if (status.isLoaded) {
+              setPlaybackPosition(status.positionMillis / 1000);
+              setPlaybackDuration(status.durationMillis ? status.durationMillis / 1000 : recordingDuration);
+              if (status.didJustFinish) {
+                setIsPlaying(false);
+                setPlaybackPosition(0);
+              }
+            }
+          }
+        );
+        soundRef.current = sound;
+        setIsPlaying(true);
+        hapticLight();
+      }
+    } catch (err) {
+      Sentry.captureException(err);
+      hapticError();
+      Alert.alert('Error', 'Could not play audio.');
+    }
+  };
+
+  const handleTranscribe = async () => {
+    if (!audioUri) return;
+
+    try {
+      setIsTranscribing(true);
+      hapticLight();
+
+      const formData = new FormData();
+      formData.append('audio', {
+        uri: audioUri,
+        type: 'audio/m4a',
+        name: 'voice.m4a',
+      } as any);
+
+      const { data } = await api.post('/journals/transcribe', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const transcript: string = data.transcript || data.text || '';
+      if (transcript) {
+        hapticSuccess();
+        setTranscriptText(transcript);
+        setContent((prev) => {
+          const trimmed = prev.trim();
+          return trimmed ? `${transcript}\n\n${trimmed}` : transcript;
+        });
+      } else {
+        hapticError();
+        Alert.alert('No Transcript', 'Could not transcribe audio. Please try again.');
+      }
+    } catch (err) {
+      Sentry.captureException(err);
+      hapticError();
+      Alert.alert('Transcription Failed', 'Could not transcribe audio. Please try again.');
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const removeAudio = async () => {
+    hapticLight();
+    if (soundRef.current) {
+      await soundRef.current.unloadAsync().catch(() => {});
+      soundRef.current = null;
+    }
+    setIsPlaying(false);
+    setAudioUri(null);
+    setTranscriptText(null);
+    setRecordingDuration(0);
+    setRecordedAmplitudes([]);
+    setPlaybackPosition(0);
+    setPlaybackDuration(0);
+  };
+
   const handleSave = async () => {
     if (!selectedMood) {
       hapticError();
@@ -178,11 +594,22 @@ export default function NewEntryScreen() {
     setSaving(true);
 
     try {
-      // Local date string (YYYY-MM-DD) for correct timezone
       const entryDate = new Date().toISOString().split('T')[0];
 
+      // Upload photo if present and authenticated
+      let finalPhotoUrl: string | null = photoUrl;
+      if (photoUri && !photoUrl && isAuthenticated) {
+        try {
+          finalPhotoUrl = await uploadPhoto(photoUri);
+          setPhotoUrl(finalPhotoUrl);
+        } catch (uploadErr) {
+          Sentry.captureException(uploadErr);
+          // Non-fatal: save entry without photo
+          finalPhotoUrl = null;
+        }
+      }
+
       if (isAuthenticated) {
-        // Save via API
         const payload: Record<string, unknown> = {
           mood_emoji: selectedMood,
           mood_score: moodScore,
@@ -192,9 +619,11 @@ export default function NewEntryScreen() {
           entry_date: entryDate,
         };
 
+        if (finalPhotoUrl) payload.photo_url = finalPhotoUrl;
+        if (transcriptText) payload.transcript = transcriptText;
+
         await api.post('/journals', payload);
       } else {
-        // Guest mode: save locally
         const canUse = await hasGuestUsesRemaining();
         if (!canUse) {
           hapticError();
@@ -226,10 +655,9 @@ export default function NewEntryScreen() {
         await incrementGuestUses();
       }
 
-      // Clear draft on successful save
       AsyncStorage.removeItem(DRAFT_KEY).catch(() => {});
       hapticSuccess();
-      trackEntrySaved().catch(() => {}); // fire-and-forget review prompt
+      trackEntrySaved().catch(() => {});
       router.back();
     } catch (err: any) {
       Sentry.captureException(err);
@@ -298,6 +726,51 @@ export default function NewEntryScreen() {
               </Text>
             </View>
           )}
+
+          {/* Encouraging subtitle */}
+          <Text className="text-xs text-text-muted text-center mt-4 px-4">
+            {encouragingPrompt}
+          </Text>
+
+          {/* Quick Entry Mode Buttons */}
+          <View className="mt-4">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}
+            >
+              {QUICK_ENTRY_MODES.map((mode) => {
+                const isSelected = quickMode === mode.id;
+                return (
+                  <Pressable
+                    key={mode.id}
+                    onPress={() => handleQuickMode(mode.id)}
+                    className={`flex-row items-center rounded-full px-3.5 py-2 border ${
+                      isSelected
+                        ? `${mode.selectedBgClass} border-transparent`
+                        : `${mode.bgClass} border-border`
+                    }`}
+                  >
+                    <Text className="text-sm mr-1">{mode.emoji}</Text>
+                    <Text
+                      className={`text-xs font-semibold ${
+                        isSelected ? mode.selectedTextClass : 'text-text-secondary'
+                      }`}
+                    >
+                      {mode.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {/* One Line mode prompt hint */}
+            {quickMode === 'oneline' && (
+              <Text className="text-xs text-text-muted mt-2 px-1">
+                How was your day in one sentence?
+              </Text>
+            )}
+          </View>
 
           {/* Mood Selector */}
           <View className="mt-5">
@@ -417,9 +890,14 @@ export default function NewEntryScreen() {
               Journal
             </Text>
             <TextInput
+              ref={contentInputRef}
               multiline
               className="bg-input-bg rounded-xl p-4 text-base text-text-primary min-h-[200px]"
-              placeholder="What's on your mind? Write freely..."
+              placeholder={
+                quickMode === 'oneline'
+                  ? 'How was your day in one sentence?'
+                  : "What's on your mind today? Even a few words count."
+              }
               placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
               value={content}
               onChangeText={setContent}
@@ -464,6 +942,197 @@ export default function NewEntryScreen() {
                 );
               })}
             </View>
+          </View>
+
+          {/* Media Toolbar: Photo + Voice */}
+          <View className="mt-6">
+            <Text className="text-base font-semibold text-text-primary mb-3">
+              Media
+            </Text>
+            <View className="flex-row" style={{ gap: 12 }}>
+              {/* Photo Button */}
+              <Pressable
+                onPress={handlePhotoPress}
+                className="flex-1 flex-row items-center justify-center bg-surface-elevated border border-border-strong rounded-xl py-3"
+                style={{ gap: 8 }}
+              >
+                <Ionicons
+                  name="camera-outline"
+                  size={20}
+                  color={photoUri ? '#2563EB' : (isDark ? '#94A3B8' : '#6B7280')}
+                />
+                <Text
+                  className={`text-sm font-medium ${photoUri ? 'text-blue-600' : 'text-text-secondary'}`}
+                >
+                  {photoUri ? 'Change Photo' : 'Photo'}
+                </Text>
+              </Pressable>
+
+              {/* Voice Button */}
+              <Pressable
+                onPress={handleVoicePress}
+                disabled={!!audioUri && !isRecording}
+                className={`flex-1 flex-row items-center rounded-xl py-3 border ${
+                  isRecording
+                    ? 'bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700'
+                    : 'justify-center bg-surface-elevated border-border-strong'
+                }`}
+                style={isRecording ? { paddingHorizontal: 0 } : { gap: 8 }}
+              >
+                {isRecording ? (
+                  <View className="flex-1 flex-row items-center px-3" style={{ gap: 8 }}>
+                    {/* Waveform bars */}
+                    <View className="flex-row items-center flex-1" style={{ gap: 2, height: 32 }}>
+                      {amplitudeHistory.slice(-20).map((amp, i) => (
+                        <View
+                          key={i}
+                          className="flex-1 rounded-full bg-red-500"
+                          style={{
+                            height: Math.max(4, amp * 28),
+                            opacity: 0.4 + (i / 20) * 0.6,
+                          }}
+                        />
+                      ))}
+                    </View>
+                    {/* Timer */}
+                    <View className="flex-row items-center" style={{ gap: 4 }}>
+                      <View className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                      <Text className="text-xs font-semibold text-red-600 dark:text-red-400 tabular-nums">
+                        {formatDuration(recordingDuration)}
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <Ionicons
+                      name="mic-outline"
+                      size={20}
+                      color={
+                        audioUri
+                          ? (isDark ? '#94A3B8' : '#9CA3AF')
+                          : (isDark ? '#94A3B8' : '#6B7280')
+                      }
+                    />
+                    <Text
+                      className={`text-sm font-medium ${
+                        audioUri ? 'text-text-muted' : 'text-text-secondary'
+                      }`}
+                    >
+                      Voice
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+
+            {/* Photo Preview */}
+            {photoUri && (
+              <View className="mt-4 flex-row items-start" style={{ gap: 12 }}>
+                <Pressable onPress={() => setPhotoFullscreen(true)}>
+                  <Image
+                    source={{ uri: photoUri }}
+                    style={{ width: 100, height: 100, borderRadius: 12 }}
+                    contentFit="cover"
+                    placeholder="LGF5?xYk^6#M@-5c,1J5@[or[Q6."
+                    transition={200}
+                  />
+                </Pressable>
+                <View className="flex-1 justify-between self-stretch">
+                  <Text className="text-xs text-text-secondary">
+                    Photo attached. Tap to preview.
+                  </Text>
+                  <Pressable
+                    onPress={removePhoto}
+                    className="flex-row items-center self-start bg-red-50 dark:bg-red-900/30 rounded-lg px-3 py-1.5 border border-red-200 dark:border-red-700"
+                    style={{ gap: 4 }}
+                  >
+                    <Ionicons name="close-circle-outline" size={14} color="#EF4444" />
+                    <Text className="text-xs font-medium text-red-600 dark:text-red-400">
+                      Remove
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+
+            {/* Voice Recorder Playback */}
+            {audioUri && !isRecording && (
+              <View className="mt-4 bg-surface-elevated rounded-xl p-4 border border-border-strong">
+                {/* Top row: play button + waveform + action buttons */}
+                <View className="flex-row items-center" style={{ gap: 10 }}>
+                  <Pressable
+                    onPress={handlePlayPause}
+                    className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 items-center justify-center"
+                  >
+                    <Ionicons
+                      name={isPlaying ? 'pause' : 'play'}
+                      size={18}
+                      color="#2563EB"
+                    />
+                  </Pressable>
+
+                  {/* Playback waveform */}
+                  <View className="flex-1">
+                    <View className="flex-row items-center flex-1" style={{ gap: 2, height: 24 }}>
+                      {(recordedAmplitudes.length > 0 ? recordedAmplitudes.slice(-40) : Array(40).fill(0.15)).map((amp, i) => (
+                        <View
+                          key={i}
+                          className={`flex-1 rounded-full ${isPlaying ? 'bg-blue-400' : 'bg-slate-300 dark:bg-slate-600'}`}
+                          style={{ height: Math.max(2, amp * 20) }}
+                        />
+                      ))}
+                    </View>
+                    <View className="flex-row justify-between mt-1">
+                      <Text className="text-[10px] text-text-muted tabular-nums">
+                        {formatDuration(Math.floor(playbackPosition))}
+                      </Text>
+                      <Text className="text-[10px] text-text-muted tabular-nums">
+                        {formatDuration(Math.floor(playbackDuration || recordingDuration))}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Action buttons */}
+                  <View className="flex-row items-center" style={{ gap: 8 }}>
+                    {!transcriptText && (
+                      <Pressable
+                        onPress={handleTranscribe}
+                        disabled={isTranscribing}
+                        className="bg-blue-50 dark:bg-blue-900/30 rounded-lg px-3 py-1.5 border border-blue-200 dark:border-blue-700 flex-row items-center"
+                        style={{ gap: 4 }}
+                      >
+                        {isTranscribing ? (
+                          <ActivityIndicator size="small" color="#2563EB" />
+                        ) : (
+                          <Ionicons name="text-outline" size={14} color="#2563EB" />
+                        )}
+                        <Text className="text-xs font-medium text-blue-700 dark:text-blue-400">
+                          {isTranscribing ? 'Working...' : 'Transcribe'}
+                        </Text>
+                      </Pressable>
+                    )}
+
+                    <Pressable
+                      onPress={removeAudio}
+                      className="bg-red-50 dark:bg-red-900/30 rounded-lg p-1.5 border border-red-200 dark:border-red-700"
+                    >
+                      <Ionicons name="close" size={14} color="#EF4444" />
+                    </Pressable>
+                  </View>
+                </View>
+
+                {transcriptText && (
+                  <View className="mt-3 pt-3 border-t border-border">
+                    <Text className="text-xs font-semibold text-text-secondary mb-1">
+                      Transcript (prepended to journal)
+                    </Text>
+                    <Text className="text-xs text-text-secondary leading-4" numberOfLines={3}>
+                      {transcriptText}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
 
           {/* Card Color */}
@@ -519,8 +1188,16 @@ export default function NewEntryScreen() {
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={22} color={!selectedMood ? (isDark ? '#475569' : '#9CA3AF') : '#FFFFFF'} />
-                <Text className={`text-base font-bold ml-2 ${!selectedMood ? 'text-text-muted' : 'text-white'}`}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={22}
+                  color={!selectedMood ? (isDark ? '#475569' : '#9CA3AF') : '#FFFFFF'}
+                />
+                <Text
+                  className={`text-base font-bold ml-2 ${
+                    !selectedMood ? 'text-text-muted' : 'text-white'
+                  }`}
+                >
                   Save Entry
                 </Text>
               </>
@@ -528,6 +1205,33 @@ export default function NewEntryScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Photo Fullscreen Modal */}
+      {photoUri && (
+        <Modal
+          visible={photoFullscreen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPhotoFullscreen(false)}
+        >
+          <Pressable
+            className="flex-1 items-center justify-center"
+            style={{ backgroundColor: 'rgba(0,0,0,0.92)' }}
+            onPress={() => setPhotoFullscreen(false)}
+          >
+            <Image
+              source={{ uri: photoUri }}
+              style={{ width: '95%', aspectRatio: 1, borderRadius: 16 }}
+              contentFit="contain"
+              placeholder="LGF5?xYk^6#M@-5c,1J5@[or[Q6."
+              transition={200}
+            />
+            <Text className="text-white text-sm mt-4 opacity-60">
+              Tap anywhere to close
+            </Text>
+          </Pressable>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }

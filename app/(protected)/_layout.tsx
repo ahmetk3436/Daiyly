@@ -57,6 +57,7 @@ const HIDDEN_TAB_ROUTES = [
   '/paywall',
   '/notification-center',
   '/sharing',
+  '/therapist-report',
 ];
 
 // Allowlist for deep-link navigation. Only these paths may be navigated to via

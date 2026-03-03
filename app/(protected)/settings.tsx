@@ -35,6 +35,7 @@ import {
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import { scheduleSmartReminder, cancelSmartReminder } from '../../lib/smartReminders';
 
 export default function SettingsScreen() {
   const { user, logout, deleteAccount, isGuest } = useAuth();
@@ -45,6 +46,8 @@ export default function SettingsScreen() {
   const [biometricType, setBiometricType] = useState<string | null>(null);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [smartRemindersEnabled, setSmartRemindersEnabled] = useState(false);
+  const [smartRemindersLoading, setSmartRemindersLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -65,6 +68,7 @@ export default function SettingsScreen() {
           const s = JSON.parse(stored);
           if (s.notificationsEnabled !== undefined) setNotificationsEnabled(s.notificationsEnabled);
           if (s.biometricEnabled !== undefined) setBiometricEnabled(s.biometricEnabled);
+          if (s.smartRemindersEnabled !== undefined) setSmartRemindersEnabled(s.smartRemindersEnabled);
         }
       } catch (err) { Sentry.captureException(err); }
     };
@@ -77,6 +81,34 @@ export default function SettingsScreen() {
       const s = stored ? JSON.parse(stored) : {};
       await AsyncStorage.setItem('@daiyly_settings', JSON.stringify({ ...s, [key]: value }));
     } catch (err) { Sentry.captureException(err); }
+  };
+
+  const handleSmartRemindersToggle = async (enabled: boolean) => {
+    hapticSelection();
+    setSmartRemindersEnabled(enabled);
+    await persistSetting('smartRemindersEnabled', enabled);
+
+    if (enabled) {
+      setSmartRemindersLoading(true);
+      try {
+        // Fetch recent entries to determine the best reminder time
+        let entries: Array<{ created_at: string }> = [];
+        try {
+          const response = await api.get('/journals', { params: { limit: 50, offset: 0 } });
+          entries = response.data?.entries || response.data?.data || [];
+        } catch {
+          // Could not fetch — scheduleSmartReminder will use the default hour
+        }
+        await scheduleSmartReminder(entries);
+        hapticSuccess();
+      } catch (err) {
+        Sentry.captureException(err);
+      } finally {
+        setSmartRemindersLoading(false);
+      }
+    } else {
+      await cancelSmartReminder();
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -496,6 +528,28 @@ export default function SettingsScreen() {
             />
             <View className="h-px bg-border ml-16" />
             <SettingsRow
+              icon="bulb-outline"
+              iconColor="#F59E0B"
+              label="Smart Reminders"
+              subtitle={
+                smartRemindersEnabled
+                  ? 'Reminds you at your usual journaling time'
+                  : 'Learns when you journal and reminds you'
+              }
+              rightElement={
+                smartRemindersLoading ? (
+                  <ActivityIndicator size="small" color="#F59E0B" />
+                ) : (
+                  <Switch
+                    value={smartRemindersEnabled}
+                    onValueChange={handleSmartRemindersToggle}
+                    trackColor={{ true: '#F59E0B' }}
+                  />
+                )
+              }
+            />
+            <View className="h-px bg-border ml-16" />
+            <SettingsRow
               icon="time-outline"
               iconColor="#8B5CF6"
               label="Notification Center"
@@ -591,6 +645,19 @@ export default function SettingsScreen() {
                 hapticLight();
                 requirePro('Data Export', () => {
                   if (!isExporting) handleExportData();
+                });
+              }}
+            />
+            <View className="h-px bg-border ml-16" />
+            <SettingsRow
+              icon="medical-outline"
+              iconColor="#2563EB"
+              label="Therapist Report"
+              subtitle="Share a 30-day AI summary with your therapist"
+              onPress={() => {
+                hapticLight();
+                requirePro('Therapist Report', () => {
+                  router.push('/(protected)/therapist-report');
                 });
               }}
             />

@@ -12,6 +12,7 @@ import { hapticLight, hapticSelection, hapticError } from '../../lib/haptics';
 import api from '../../lib/api';
 
 const NOTIF_PREFS_KEY = '@daiyly_notification_prefs';
+const NOTIF_OPTIMAL_HOUR_KEY = '@daiyly_notification_optimal_hour';
 
 interface NotificationItem {
   id: string;
@@ -57,6 +58,7 @@ export default function NotificationCenterScreen() {
   const [streakAlerts, setStreakAlerts] = useState(true);
   const [weeklyReports, setWeeklyReports] = useState(true);
   const [osPermissionGranted, setOsPermissionGranted] = useState<boolean | null>(null);
+  const [smartScheduleLoading, setSmartScheduleLoading] = useState(false);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -300,6 +302,81 @@ export default function NotificationCenterScreen() {
     }
   };
 
+  // Schedule a daily local notification at the given hour (0–23)
+  const scheduleReminderAtHour = async (hour: number) => {
+    try {
+      // Cancel all existing scheduled notifications first
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      // Schedule a new daily trigger at the given hour
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Time to journal',
+          body: 'Take a moment to reflect on your day.',
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour,
+          minute: 0,
+        },
+      });
+      // Persist the chosen hour
+      await AsyncStorage.setItem(NOTIF_OPTIMAL_HOUR_KEY, String(hour));
+    } catch {
+      // Non-critical — swallow scheduling errors
+    }
+  };
+
+  // Format hour as 12h clock string, e.g. 21 -> "9:00 PM"
+  const formatHour = (hour: number): string => {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const h = hour % 12 || 12;
+    return `${h}:00 ${period}`;
+  };
+
+  const handleSmartSchedule = async () => {
+    if (!isAuthenticated) return;
+    hapticLight();
+    setSmartScheduleLoading(true);
+    try {
+      const res = await api.get('/journals/notification-timing');
+      const optimalHour: number | undefined = res.data?.optimal_hour;
+
+      if (optimalHour === undefined || optimalHour === null) {
+        Alert.alert(
+          'Not Enough Data',
+          'Journal at least 5 times to get a personalized schedule.'
+        );
+        return;
+      }
+
+      const timeLabel = formatHour(optimalHour);
+      Alert.alert(
+        'Smart Schedule',
+        `Based on your journaling habits, the best time is ${timeLabel}. Use this?`,
+        [
+          { text: 'Not Now', style: 'cancel' },
+          {
+            text: 'Yes, Use This',
+            onPress: async () => {
+              hapticSelection();
+              // Make sure daily reminder is enabled
+              if (!dailyReminder) {
+                setDailyReminder(true);
+                await persistPrefs({ dailyReminder: true, streakAlerts, weeklyReports });
+              }
+              await scheduleReminderAtHour(optimalHour);
+              Alert.alert('Done', `Daily reminder set for ${timeLabel}.`);
+            },
+          },
+        ]
+      );
+    } catch {
+      Alert.alert('Smart Schedule', 'Journal at least 5 times to get a personalized schedule.');
+    } finally {
+      setSmartScheduleLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       {/* Header */}
@@ -426,6 +503,32 @@ export default function NotificationCenterScreen() {
               />
             </View>
           </View>
+
+          {/* Smart Schedule Button */}
+          {isAuthenticated && (
+            <Pressable
+              onPress={handleSmartSchedule}
+              disabled={smartScheduleLoading}
+              className="mt-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 flex-row items-center border border-blue-100 dark:border-blue-800 active:opacity-80"
+            >
+              <View className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-800 items-center justify-center mr-3">
+                {smartScheduleLoading ? (
+                  <ActivityIndicator size="small" color="#2563EB" />
+                ) : (
+                  <Ionicons name="sparkles-outline" size={18} color="#2563EB" />
+                )}
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                  Smart Schedule
+                </Text>
+                <Text className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                  Find the best time based on your habits
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={isDark ? '#60A5FA' : '#2563EB'} />
+            </Pressable>
+          )}
         </View>
 
         {/* Notifications List */}
