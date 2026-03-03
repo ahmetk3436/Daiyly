@@ -22,6 +22,10 @@ export default function LoginScreen() {
       setError('Please fill in all fields');
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Invalid email format');
+      return;
+    }
 
     setIsLoading(true);
     try {

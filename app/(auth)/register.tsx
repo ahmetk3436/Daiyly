@@ -24,6 +24,10 @@ export default function RegisterScreen() {
       setError('Please fill in all fields');
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Invalid email format');
+      return;
+    }
 
     if (password.length < 8) {
       setError('Password must be at least 8 characters');

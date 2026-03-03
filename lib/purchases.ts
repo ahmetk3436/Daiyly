@@ -34,7 +34,7 @@ export const initializePurchases = async () => {
     Purchases.setLogLevel(LOG_LEVEL.WARN);
     await Purchases.configure({ apiKey: API_KEY });
     isInitialized = true;
-    console.log('[Purchases] RevenueCat initialized');
+    if (__DEV__) console.log('[Purchases] RevenueCat initialized');
   } catch (error) {
     Sentry.captureException(error);
     console.warn('[Purchases] Configure failed (Expo Go?) — running in free mode');
