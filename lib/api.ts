@@ -14,6 +14,9 @@ const APP_ID = 'daiyly';
 
 // Protected app routes: /api/p/...
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL as string;
+if (!API_BASE_URL) {
+  throw new Error('[api] EXPO_PUBLIC_API_URL is not set — add it to your .env file');
+}
 
 // Auth/public routes: /api/... (strip /p suffix if present)
 const AUTH_BASE_URL = API_BASE_URL.endsWith('/p')
