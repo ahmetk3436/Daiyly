@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Sentry from '@sentry/react-native';
 import { hapticLight, hapticSuccess } from '../../lib/haptics';
 
 // 2025-2026 Trend: Viral shareable cards (Instagram Story optimized)
@@ -47,6 +48,7 @@ export default function ShareableResult({
       });
       hapticSuccess();
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Share error:', error);
     }
   };
@@ -155,6 +157,7 @@ export function MinimalShareCard({
       await Sharing.shareAsync(fileUri);
       hapticSuccess();
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Share error:', error);
     }
   };

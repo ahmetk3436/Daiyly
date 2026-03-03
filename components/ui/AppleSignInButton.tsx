@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Platform, View, Text, Pressable, ActivityIndicator } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Ionicons } from '@expo/vector-icons';
+import * as Sentry from '@sentry/react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { hapticLight, hapticError } from '../../lib/haptics';
 
@@ -58,6 +59,7 @@ export default function AppleSignInButton({
         setLoading(false);
         return;
       }
+      Sentry.captureException(err);
       hapticError();
       onError?.(err.message || 'Apple Sign In failed');
     } finally {

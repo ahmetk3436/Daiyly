@@ -12,6 +12,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Sentry from '@sentry/react-native';
 import api from '../../lib/api';
 import { hapticLight, hapticSelection } from '../../lib/haptics';
 import { cacheGet } from '../../lib/cache';
@@ -189,7 +190,8 @@ export default function SearchScreen() {
       setHasMore(responseHasMore ?? false);
       setIsOfflineResults(false);
       hapticLight();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // Offline fallback: search pre-loaded cached entries (no I/O on main thread)
       const allCached = offlineCacheRef.current;
 

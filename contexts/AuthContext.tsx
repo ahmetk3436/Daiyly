@@ -12,6 +12,7 @@ import {
   getAccessToken,
   getRefreshToken,
 } from '../lib/storage';
+import * as Sentry from '@sentry/react-native';
 import { hapticSuccess, hapticError } from '../lib/haptics';
 import { migrateGuestEntries } from '../lib/guest';
 import type { User, AuthResponse } from '../types/auth';
@@ -57,11 +58,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else {
               await clearTokens();
             }
-          } catch {
+          } catch (err) {
+            Sentry.captureException(err);
             await clearTokens();
           }
         }
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         await clearTokens();
       } finally {
         setIsLoading(false);
