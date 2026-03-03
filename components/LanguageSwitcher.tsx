@@ -15,6 +15,7 @@ import {
   getSupportedLanguages,
   type SupportedLanguage,
 } from '../lib/i18n';
+import * as Sentry from '@sentry/react-native';
 import { hapticLight, hapticSuccess } from '../lib/haptics';
 
 interface LanguageSwitcherProps {
@@ -56,6 +57,7 @@ export default function LanguageSwitcher({
         onClose();
       }
     } catch (error) {
+      Sentry.captureException(error);
       console.error('Failed to change language:', error);
       setChanging(false);
     }
