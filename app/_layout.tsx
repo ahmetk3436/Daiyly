@@ -34,6 +34,9 @@ Sentry.init({
     for (const bc of breadcrumbs) {
       if (bc.category === 'xhr' || bc.category === 'fetch' || bc.category === 'http') {
         bc.data = undefined;
+        // Scrub URL — endpoint paths (e.g. /entries/:uuid) are behavioral health
+        // data under FTC HBNR 2024. Remove entirely, keep only the category tag.
+        bc.url = undefined;
       }
     }
     return event;

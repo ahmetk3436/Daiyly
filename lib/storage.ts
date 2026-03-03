@@ -2,8 +2,11 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
-const ACCESS_TOKEN_KEY = 'access_token';
-const REFRESH_TOKEN_KEY = 'refresh_token';
+// App-scoped keys prevent cross-app keychain reads when multiple apps share
+// the same Apple Team ID (HSP7DV4L29). Generic 'access_token' keys can be
+// read by any app signed under the same team.
+const ACCESS_TOKEN_KEY = 'daiyly_access_token';
+const REFRESH_TOKEN_KEY = 'daiyly_refresh_token';
 
 // AsyncStorage fallback keys — only used in Expo Go (dev) where SecureStore
 // silently returns null after a JS reload/restart.
@@ -59,6 +62,9 @@ export const clearTokens = async (): Promise<void> => {
   await Promise.all([
     SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY).catch(() => {}),
     SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY).catch(() => {}),
+    // Also purge legacy generic keys (pre-scoped key migration, wave 4)
+    SecureStore.deleteItemAsync('access_token').catch(() => {}),
+    SecureStore.deleteItemAsync('refresh_token').catch(() => {}),
     AsyncStorage.removeItem(FALLBACK_ACCESS_KEY).catch(() => {}),
     AsyncStorage.removeItem(FALLBACK_REFRESH_KEY).catch(() => {}),
   ]);
