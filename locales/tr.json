@@ -98,7 +98,10 @@
     "yesterday": "Dün",
     "guestLimit": "Misafir Limiti Aşıldı",
     "guestLimitBody": "Günlük tutmaya devam etmek ve girişlerinizi kaybetmemek için ücretsiz hesap oluşturun.",
-    "createAccount": "Hesap Oluştur"
+    "createAccount": "Hesap Oluştur",
+    "onThisDay": "Bu Günde",
+    "streakProtected": "Seri Korundu",
+    "streakAtRisk": "Seri tehlikede — şimdi yaz"
   },
   "entry": {
     "newEntry": "Yeni Giriş",
@@ -125,7 +128,17 @@
     "tagsLabel": "Etiketler",
     "sentimentPositive": "Olumlu",
     "sentimentNeutral": "Nötr",
-    "sentimentNegative": "Olumsuz"
+    "sentimentNegative": "Olumsuz",
+    "modeStandard": "Standart",
+    "modeQuick": "Hızlı",
+    "modeGratitude": "Şükran",
+    "modeBullets": "Madde",
+    "modeVoice": "Ses",
+    "gratefulFor": "Bugün minnetarım...",
+    "smallWin": "Bugünkü küçük bir başarım...",
+    "madeMeSmile": "Beni güldüren bir şey...",
+    "quickPlaceholder": "Tek cümlede yakala...",
+    "voiceStarting": "Ses kaydı başlatılıyor..."
   },
   "moods": {
     "happy": "Mutlu",
@@ -174,7 +187,16 @@
     "noResultsSubtitle": "Farklı bir arama terimi deneyin",
     "recentSearches": "Son aramalar",
     "unlockSearch": "Tam Metin Aramanın Kilidini Aç",
-    "unlockSearchBody": "Tüm günlük girişlerinizde anında arama yapın."
+    "unlockSearchBody": "Tüm günlük girişlerinizde anında arama yapın.",
+    "askMode": "Sor",
+    "searchMode": "Ara",
+    "askPlaceholder": "Geçen ay seni mutlu eden ne oldu?",
+    "searchingMemories": "Anıların aranıyor...",
+    "askYourJournal": "Günlüğüne sor",
+    "topThemes": "Öne çıkan temalar",
+    "unlockJournalAI": "Günlük Yapay Zekasının Kilidini Aç",
+    "unlockJournalAIBody": "Yapay zeka ile tüm günlük geçmişin hakkında sorular sor",
+    "rateLimitReached": "Bugünkü yapay zeka sorgu limitine ulaştınız"
   },
   "settings": {
     "title": "Ayarlar",
@@ -215,7 +237,8 @@
     "changePassword": "Şifre Değiştir",
     "currentPassword": "Mevcut Şifre",
     "newPassword": "Yeni Şifre",
-    "passwordChanged": "Şifre başarıyla değiştirildi"
+    "passwordChanged": "Şifre başarıyla değiştirildi",
+    "exportCSV": "CSV olarak dışa aktar"
   },
   "paywall": {
     "headline": "Kendinizi tanıyın, her gün büyüyün",

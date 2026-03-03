@@ -98,7 +98,10 @@
     "yesterday": "Gestern",
     "guestLimit": "Gast-Limit erreicht",
     "guestLimitBody": "Erstelle ein kostenloses Konto, um weiter Tagebuch zu schreiben und deine Einträge nie zu verlieren.",
-    "createAccount": "Konto erstellen"
+    "createAccount": "Konto erstellen",
+    "onThisDay": "An diesem Tag",
+    "streakProtected": "Serie geschützt",
+    "streakAtRisk": "Serie gefährdet — jetzt schreiben"
   },
   "entry": {
     "newEntry": "Neuer Eintrag",
@@ -125,7 +128,17 @@
     "tagsLabel": "Tags",
     "sentimentPositive": "Positiv",
     "sentimentNeutral": "Neutral",
-    "sentimentNegative": "Negativ"
+    "sentimentNegative": "Negativ",
+    "modeStandard": "Standard",
+    "modeQuick": "Schnell",
+    "modeGratitude": "Dankbarkeit",
+    "modeBullets": "Stichpunkte",
+    "modeVoice": "Sprache",
+    "gratefulFor": "Heute bin ich dankbar für...",
+    "smallWin": "Ein kleiner Erfolg heute war...",
+    "madeMeSmile": "Etwas, das mich zum Lächeln brachte...",
+    "quickPlaceholder": "In einem Satz festhalten...",
+    "voiceStarting": "Sprachaufnahme wird gestartet..."
   },
   "moods": {
     "happy": "Glücklich",
@@ -174,7 +187,16 @@
     "noResultsSubtitle": "Versuche einen anderen Suchbegriff",
     "recentSearches": "Letzte Suchanfragen",
     "unlockSearch": "Volltextsuche freischalten",
-    "unlockSearchBody": "Durchsuche alle deine Tagebucheinträge sofort."
+    "unlockSearchBody": "Durchsuche alle deine Tagebucheinträge sofort.",
+    "askMode": "Fragen",
+    "searchMode": "Suchen",
+    "askPlaceholder": "Was hat dich letzten Monat glücklich gemacht?",
+    "searchingMemories": "Erinnerungen werden durchsucht...",
+    "askYourJournal": "Frag dein Tagebuch",
+    "topThemes": "Hauptthemen",
+    "unlockJournalAI": "Journal-KI freischalten",
+    "unlockJournalAIBody": "Stelle Fragen zu deiner gesamten Tagebuchgeschichte mit KI",
+    "rateLimitReached": "Du hast das heutige KI-Abfragelimit erreicht"
   },
   "settings": {
     "title": "Einstellungen",
@@ -215,7 +237,8 @@
     "changePassword": "Passwort ändern",
     "currentPassword": "Aktuelles Passwort",
     "newPassword": "Neues Passwort",
-    "passwordChanged": "Passwort erfolgreich geändert"
+    "passwordChanged": "Passwort erfolgreich geändert",
+    "exportCSV": "Als CSV exportieren"
   },
   "paywall": {
     "headline": "Kenne dich selbst, wachse jeden Tag",

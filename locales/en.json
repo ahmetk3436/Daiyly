@@ -98,7 +98,10 @@
     "yesterday": "Yesterday",
     "guestLimit": "Guest Limit Reached",
     "guestLimitBody": "Create a free account to continue journaling and never lose your entries.",
-    "createAccount": "Create Account"
+    "createAccount": "Create Account",
+    "onThisDay": "On This Day",
+    "streakProtected": "Streak Protected",
+    "streakAtRisk": "Streak at risk — log now"
   },
   "entry": {
     "newEntry": "New Entry",
@@ -125,7 +128,17 @@
     "tagsLabel": "Tags",
     "sentimentPositive": "Positive",
     "sentimentNeutral": "Neutral",
-    "sentimentNegative": "Negative"
+    "sentimentNegative": "Negative",
+    "modeStandard": "Standard",
+    "modeQuick": "Quick",
+    "modeGratitude": "Gratitude",
+    "modeBullets": "Bullets",
+    "modeVoice": "Voice",
+    "gratefulFor": "Today I'm grateful for...",
+    "smallWin": "A small win today was...",
+    "madeMeSmile": "Something that made me smile...",
+    "quickPlaceholder": "Capture in one sentence...",
+    "voiceStarting": "Starting voice recording..."
   },
   "moods": {
     "happy": "Happy",
@@ -174,7 +187,16 @@
     "noResultsSubtitle": "Try a different search term",
     "recentSearches": "Recent searches",
     "unlockSearch": "Unlock Full-Text Search",
-    "unlockSearchBody": "Search across all your journal entries instantly."
+    "unlockSearchBody": "Search across all your journal entries instantly.",
+    "askMode": "Ask",
+    "searchMode": "Search",
+    "askPlaceholder": "What made you happy last month?",
+    "searchingMemories": "Searching your memories...",
+    "askYourJournal": "Ask your journal",
+    "topThemes": "Top themes",
+    "unlockJournalAI": "Unlock Journal AI",
+    "unlockJournalAIBody": "Ask questions about your entire journal history with AI",
+    "rateLimitReached": "You've reached today's AI query limit"
   },
   "settings": {
     "title": "Settings",
@@ -215,7 +237,8 @@
     "changePassword": "Change Password",
     "currentPassword": "Current Password",
     "newPassword": "New Password",
-    "passwordChanged": "Password changed successfully"
+    "passwordChanged": "Password changed successfully",
+    "exportCSV": "Export as CSV"
   },
   "paywall": {
     "headline": "Know yourself, grow every day",

@@ -53,6 +53,7 @@ export default function SettingsScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingCSV, setIsExportingCSV] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -305,6 +306,81 @@ export default function SettingsScreen() {
       );
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    hapticMedium();
+    setIsExportingCSV(true);
+    try {
+      // Fetch all entries (paginate)
+      let allEntries: any[] = [];
+      let offset = 0;
+      const limit = 100;
+      let hasMore = true;
+      let fetchFailed = false;
+
+      while (hasMore) {
+        try {
+          const response = await api.get('/journals', { params: { limit, offset } });
+          const data = response.data;
+          const entries = data.entries || data.data || [];
+          allEntries = [...allEntries, ...entries];
+          offset += limit;
+          hasMore = entries.length === limit;
+        } catch (err) {
+          Sentry.captureException(err);
+          fetchFailed = true;
+          hasMore = false;
+        }
+      }
+
+      if (allEntries.length === 0) {
+        Alert.alert('No Data', fetchFailed
+          ? 'Failed to fetch entries. Please check your connection and try again.'
+          : 'You have no journal entries to export.');
+        return;
+      }
+
+      // Build CSV
+      const headers = ['date', 'mood_emoji', 'mood_score', 'content', 'tags', 'card_color'];
+      const escape = (v: string) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const rows = allEntries.map((e: any) => [
+        escape(e.entry_date || e.created_at?.split('T')[0] || ''),
+        escape(e.mood_emoji || ''),
+        escape(String(e.mood_score ?? '')),
+        escape(e.content || ''),
+        escape((e.tags || []).join(', ')),
+        escape(e.card_color || ''),
+      ].join(','));
+      const csvString = [headers.join(','), ...rows].join('\n');
+
+      const fileName = `daiyly-export-${new Date().toISOString().split('T')[0]}.csv`;
+      const file = new File(Paths.cache, fileName);
+      file.create();
+      file.write(csvString);
+
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'text/csv',
+          dialogTitle: 'Export Journal as CSV',
+          UTI: 'public.comma-separated-values-text',
+        });
+        hapticSuccess();
+        if (fetchFailed) {
+          Alert.alert('Partial Export', `Exported ${allEntries.length} entries. Some entries could not be fetched.`);
+        }
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device.');
+        hapticError();
+      }
+    } catch (err: any) {
+      Sentry.captureException(err);
+      hapticError();
+      Alert.alert('Export Failed', err?.response?.data?.message || 'Failed to export data. Please try again.');
+    } finally {
+      setIsExportingCSV(false);
     }
   };
 
@@ -645,6 +721,19 @@ export default function SettingsScreen() {
                 hapticLight();
                 requirePro('Data Export', () => {
                   if (!isExporting) handleExportData();
+                });
+              }}
+            />
+            <View className="h-px bg-border ml-16" />
+            <SettingsRow
+              icon="document-text-outline"
+              iconColor="#10B981"
+              label={isExportingCSV ? 'Exporting...' : 'Export as CSV'}
+              subtitle={isSubscribed ? 'Export entries as CSV spreadsheet' : 'Premium feature'}
+              onPress={() => {
+                hapticLight();
+                requirePro('CSV Export', () => {
+                  if (!isExportingCSV) handleExportCSV();
                 });
               }}
             />

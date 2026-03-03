@@ -98,7 +98,10 @@
     "yesterday": "أمس",
     "guestLimit": "تجاوزت حد الضيف",
     "guestLimitBody": "أنشئ حساباً مجانياً لمواصلة التدوين.",
-    "createAccount": "إنشاء حساب"
+    "createAccount": "إنشاء حساب",
+    "onThisDay": "في هذا اليوم",
+    "streakProtected": "السلسلة محمية",
+    "streakAtRisk": "السلسلة في خطر — سجّل الآن"
   },
   "entry": {
     "newEntry": "مدخلة جديدة",
@@ -125,7 +128,17 @@
     "tagsLabel": "الوسوم",
     "sentimentPositive": "إيجابي",
     "sentimentNeutral": "محايد",
-    "sentimentNegative": "سلبي"
+    "sentimentNegative": "سلبي",
+    "modeStandard": "قياسي",
+    "modeQuick": "سريع",
+    "modeGratitude": "امتنان",
+    "modeBullets": "نقاط",
+    "modeVoice": "صوت",
+    "gratefulFor": "اليوم أنا ممتن لـ...",
+    "smallWin": "إنجاز صغير اليوم كان...",
+    "madeMeSmile": "شيء جعلني أبتسم...",
+    "quickPlaceholder": "سجّل في جملة واحدة...",
+    "voiceStarting": "جارٍ بدء التسجيل الصوتي..."
   },
   "moods": {
     "happy": "سعيد",
@@ -174,7 +187,16 @@
     "noResultsSubtitle": "جرب مصطلح بحث مختلف",
     "recentSearches": "عمليات البحث الأخيرة",
     "unlockSearch": "فتح البحث في النص الكامل",
-    "unlockSearchBody": "ابحث في جميع مدخلاتك فوراً."
+    "unlockSearchBody": "ابحث في جميع مدخلاتك فوراً.",
+    "askMode": "اسأل",
+    "searchMode": "ابحث",
+    "askPlaceholder": "ما الذي جعلك سعيداً الشهر الماضي؟",
+    "searchingMemories": "البحث في ذكرياتك...",
+    "askYourJournal": "اسأل مجلتك",
+    "topThemes": "الموضوعات الرئيسية",
+    "unlockJournalAI": "فتح ذكاء المجلة الاصطناعي",
+    "unlockJournalAIBody": "اطرح أسئلة حول تاريخ مجلتك بالكامل باستخدام الذكاء الاصطناعي",
+    "rateLimitReached": "لقد وصلت إلى حد استعلامات الذكاء الاصطناعي اليوم"
   },
   "settings": {
     "title": "الإعدادات",
@@ -215,7 +237,8 @@
     "changePassword": "تغيير كلمة المرور",
     "currentPassword": "كلمة المرور الحالية",
     "newPassword": "كلمة المرور الجديدة",
-    "passwordChanged": "تم تغيير كلمة المرور بنجاح"
+    "passwordChanged": "تم تغيير كلمة المرور بنجاح",
+    "exportCSV": "تصدير كـ CSV"
   },
   "paywall": {
     "headline": "اعرف نفسك، انمُ كل يوم",

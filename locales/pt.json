@@ -98,7 +98,10 @@
     "yesterday": "Ontem",
     "guestLimit": "Limite de convidado atingido",
     "guestLimitBody": "Crie uma conta gratuita para continuar o journaling.",
-    "createAccount": "Criar conta"
+    "createAccount": "Criar conta",
+    "onThisDay": "Neste dia",
+    "streakProtected": "Sequência protegida",
+    "streakAtRisk": "Sequência em risco — escreva agora"
   },
   "entry": {
     "newEntry": "Nova entrada",
@@ -125,7 +128,17 @@
     "tagsLabel": "Tags",
     "sentimentPositive": "Positivo",
     "sentimentNeutral": "Neutro",
-    "sentimentNegative": "Negativo"
+    "sentimentNegative": "Negativo",
+    "modeStandard": "Padrão",
+    "modeQuick": "Rápido",
+    "modeGratitude": "Gratidão",
+    "modeBullets": "Tópicos",
+    "modeVoice": "Voz",
+    "gratefulFor": "Hoje sou grato por...",
+    "smallWin": "Uma pequena vitória hoje foi...",
+    "madeMeSmile": "Algo que me fez sorrir...",
+    "quickPlaceholder": "Capture em uma frase...",
+    "voiceStarting": "Iniciando gravação de voz..."
   },
   "moods": {
     "happy": "Feliz",
@@ -174,7 +187,16 @@
     "noResultsSubtitle": "Tente um termo de pesquisa diferente",
     "recentSearches": "Pesquisas recentes",
     "unlockSearch": "Desbloquear pesquisa de texto completo",
-    "unlockSearchBody": "Pesquise instantaneamente em todas as entradas."
+    "unlockSearchBody": "Pesquise instantaneamente em todas as entradas.",
+    "askMode": "Perguntar",
+    "searchMode": "Pesquisar",
+    "askPlaceholder": "O que te fez feliz no mês passado?",
+    "searchingMemories": "Buscando suas memórias...",
+    "askYourJournal": "Pergunte ao seu diário",
+    "topThemes": "Temas principais",
+    "unlockJournalAI": "Desbloquear IA do diário",
+    "unlockJournalAIBody": "Faça perguntas sobre toda a sua história do diário com IA",
+    "rateLimitReached": "Você atingiu o limite diário de consultas IA"
   },
   "settings": {
     "title": "Configurações",
@@ -215,7 +237,8 @@
     "changePassword": "Alterar senha",
     "currentPassword": "Senha atual",
     "newPassword": "Nova senha",
-    "passwordChanged": "Senha alterada com sucesso"
+    "passwordChanged": "Senha alterada com sucesso",
+    "exportCSV": "Exportar como CSV"
   },
   "paywall": {
     "headline": "Conheça-se, cresça cada dia",

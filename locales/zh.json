@@ -98,7 +98,10 @@
     "yesterday": "昨天",
     "guestLimit": "已达访客上限",
     "guestLimitBody": "创建免费账户以继续记日记。",
-    "createAccount": "创建账户"
+    "createAccount": "创建账户",
+    "onThisDay": "在这一天",
+    "streakProtected": "连续记录已保护",
+    "streakAtRisk": "连续记录有风险 — 现在写"
   },
   "entry": {
     "newEntry": "新条目",
@@ -125,7 +128,17 @@
     "tagsLabel": "标签",
     "sentimentPositive": "积极",
     "sentimentNeutral": "中性",
-    "sentimentNegative": "消极"
+    "sentimentNegative": "消极",
+    "modeStandard": "标准",
+    "modeQuick": "快速",
+    "modeGratitude": "感恩",
+    "modeBullets": "要点",
+    "modeVoice": "语音",
+    "gratefulFor": "今天我感恩...",
+    "smallWin": "今天的一个小胜利是...",
+    "madeMeSmile": "让我微笑的事情...",
+    "quickPlaceholder": "用一句话记录...",
+    "voiceStarting": "正在启动语音录制..."
   },
   "moods": {
     "happy": "开心",
@@ -174,7 +187,16 @@
     "noResultsSubtitle": "尝试不同的搜索词",
     "recentSearches": "最近搜索",
     "unlockSearch": "解锁全文搜索",
-    "unlockSearchBody": "立即搜索所有条目。"
+    "unlockSearchBody": "立即搜索所有条目。",
+    "askMode": "提问",
+    "searchMode": "搜索",
+    "askPlaceholder": "上个月什么让你开心？",
+    "searchingMemories": "正在搜索你的记忆...",
+    "askYourJournal": "问问你的日记",
+    "topThemes": "主要主题",
+    "unlockJournalAI": "解锁日记AI",
+    "unlockJournalAIBody": "使用AI询问有关整个日记历史的问题",
+    "rateLimitReached": "您已达到今日AI查询限制"
   },
   "settings": {
     "title": "设置",
@@ -215,7 +237,8 @@
     "changePassword": "更改密码",
     "currentPassword": "当前密码",
     "newPassword": "新密码",
-    "passwordChanged": "密码更改成功"
+    "passwordChanged": "密码更改成功",
+    "exportCSV": "导出为CSV"
   },
   "paywall": {
     "headline": "了解自己，每天成长",

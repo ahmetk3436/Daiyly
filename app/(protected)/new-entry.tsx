@@ -64,7 +64,7 @@ const ACTIVITY_TAGS = [
 
 const DRAFT_KEY = '@daiyly_draft';
 
-type QuickEntryMode = 'free' | 'gratitude' | 'oneline' | 'reflect';
+type QuickEntryMode = 'free' | 'gratitude' | 'oneline' | 'reflect' | 'bullet' | 'voice';
 
 const QUICK_ENTRY_MODES: {
   id: QuickEntryMode;
@@ -78,13 +78,23 @@ const QUICK_ENTRY_MODES: {
 }[] = [
   {
     id: 'free',
-    label: 'Free Write',
+    label: 'Standard',
     emoji: '\u2736',
     color: '#64748B',
     bgClass: 'bg-slate-100 dark:bg-slate-800',
     selectedBgClass: 'bg-slate-200 dark:bg-slate-700',
     selectedTextClass: 'text-slate-700 dark:text-slate-200',
     scaffold: null,
+  },
+  {
+    id: 'oneline',
+    label: 'Quick',
+    emoji: '\u26A1',
+    color: '#2563EB',
+    bgClass: 'bg-blue-50 dark:bg-blue-900/30',
+    selectedBgClass: 'bg-blue-100 dark:bg-blue-800/50',
+    selectedTextClass: 'text-blue-800 dark:text-blue-300',
+    scaffold: '',
   },
   {
     id: 'gratitude',
@@ -94,17 +104,27 @@ const QUICK_ENTRY_MODES: {
     bgClass: 'bg-amber-50 dark:bg-amber-900/30',
     selectedBgClass: 'bg-amber-100 dark:bg-amber-800/50',
     selectedTextClass: 'text-amber-800 dark:text-amber-300',
-    scaffold: "Today I'm grateful for: ",
+    scaffold: null, // handled specially via GratitudeInputs
   },
   {
-    id: 'oneline',
-    label: 'One Line',
-    emoji: '\u270F\uFE0F',
-    color: '#2563EB',
-    bgClass: 'bg-blue-50 dark:bg-blue-900/30',
-    selectedBgClass: 'bg-blue-100 dark:bg-blue-800/50',
-    selectedTextClass: 'text-blue-800 dark:text-blue-300',
-    scaffold: '',
+    id: 'bullet',
+    label: 'Bullets',
+    emoji: '\u{1F4CB}',
+    color: '#10B981',
+    bgClass: 'bg-emerald-50 dark:bg-emerald-900/30',
+    selectedBgClass: 'bg-emerald-100 dark:bg-emerald-800/50',
+    selectedTextClass: 'text-emerald-800 dark:text-emerald-300',
+    scaffold: null, // handled specially via BulletInputs
+  },
+  {
+    id: 'voice',
+    label: 'Voice',
+    emoji: '\u{1F399}\u{FE0F}',
+    color: '#EF4444',
+    bgClass: 'bg-red-50 dark:bg-red-900/30',
+    selectedBgClass: 'bg-red-100 dark:bg-red-800/50',
+    selectedTextClass: 'text-red-800 dark:text-red-300',
+    scaffold: null,
   },
   {
     id: 'reflect',
@@ -165,6 +185,14 @@ export default function NewEntryScreen() {
 
   // Quick entry mode
   const [quickMode, setQuickMode] = useState<QuickEntryMode>('free');
+
+  // Gratitude mode fields
+  const [gratitudeLine1, setGratitudeLine1] = useState('');
+  const [gratitudeLine2, setGratitudeLine2] = useState('');
+  const [gratitudeLine3, setGratitudeLine3] = useState('');
+
+  // Bullet mode items
+  const [bulletItems, setBulletItems] = useState<string[]>(['', '', '']);
 
   // Rotating encouraging subtitle (random on mount)
   const encouragingPrompt = useMemo(
@@ -292,15 +320,53 @@ export default function NewEntryScreen() {
     hapticSelection();
     setQuickMode(mode);
     const modeData = QUICK_ENTRY_MODES.find((m) => m.id === mode);
-    if (modeData && modeData.scaffold !== null) {
-      setContent(modeData.scaffold);
-    } else if (mode === 'free') {
-      setContent('');
+    if (mode === 'free' || mode === 'reflect' || mode === 'oneline') {
+      if (modeData && modeData.scaffold !== null) {
+        setContent(modeData.scaffold);
+      } else {
+        setContent('');
+      }
+      setTimeout(() => contentInputRef.current?.focus(), 100);
+    } else if (mode === 'gratitude') {
+      setGratitudeLine1('');
+      setGratitudeLine2('');
+      setGratitudeLine3('');
+    } else if (mode === 'bullet') {
+      setBulletItems(['', '', '']);
+    } else if (mode === 'voice') {
+      // Auto-start voice recording
+      setTimeout(() => startRecording(), 300);
     }
-    // Focus the content input after a brief delay to allow state update
-    setTimeout(() => {
-      contentInputRef.current?.focus();
-    }, 100);
+  };
+
+  const addBulletItem = () => {
+    hapticLight();
+    setBulletItems((prev) => [...prev, '']);
+  };
+
+  const removeBulletItem = (index: number) => {
+    hapticLight();
+    setBulletItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateBulletItem = (index: number, text: string) => {
+    setBulletItems((prev) => prev.map((item, i) => (i === index ? text : item)));
+  };
+
+  // Compute final content from structured modes before saving
+  const getFinalContent = (): string => {
+    if (quickMode === 'gratitude') {
+      const parts: string[] = [];
+      if (gratitudeLine1.trim()) parts.push(`Grateful for: ${gratitudeLine1.trim()}`);
+      if (gratitudeLine2.trim()) parts.push(`Win: ${gratitudeLine2.trim()}`);
+      if (gratitudeLine3.trim()) parts.push(`Smile: ${gratitudeLine3.trim()}`);
+      return parts.join('\n') || content;
+    }
+    if (quickMode === 'bullet') {
+      const filled = bulletItems.filter((b) => b.trim());
+      return filled.map((b, i) => `${i + 1}. ${b.trim()}`).join('\n') || content;
+    }
+    return content;
   };
 
   // --- Photo Picker ---
@@ -610,13 +676,15 @@ export default function NewEntryScreen() {
       }
 
       if (isAuthenticated) {
+        const finalContent = getFinalContent();
         const payload: Record<string, unknown> = {
           mood_emoji: selectedMood,
           mood_score: moodScore,
-          content: content.trim() || (title.trim() || ''),
+          content: finalContent.trim() || title.trim() || '',
           card_color: cardColor,
           tags: selectedTags,
           entry_date: entryDate,
+          entry_type: quickMode === 'free' ? 'standard' : quickMode === 'oneline' ? 'quick' : quickMode,
         };
 
         if (finalPhotoUrl) payload.photo_url = finalPhotoUrl;
@@ -642,11 +710,12 @@ export default function NewEntryScreen() {
           return;
         }
 
+        const finalContent = getFinalContent();
         await saveGuestEntry({
           id: `guest_${Date.now()}`,
           mood_emoji: selectedMood,
           mood_score: moodScore,
-          content: content.trim() || (title.trim() || ''),
+          content: finalContent.trim() || title.trim() || '',
           card_color: cardColor,
           tags: selectedTags,
           created_at: new Date().toISOString(),
@@ -764,10 +833,15 @@ export default function NewEntryScreen() {
               })}
             </ScrollView>
 
-            {/* One Line mode prompt hint */}
-            {quickMode === 'oneline' && (
-              <Text className="text-xs text-text-muted mt-2 px-1">
-                How was your day in one sentence?
+            {/* Mode hints */}
+            {quickMode === 'voice' && !isRecording && !audioUri && (
+              <Text className="text-xs text-red-500 dark:text-red-400 mt-2 px-1">
+                {'\u{1F399}\u{FE0F}'} Auto-starts recording — use mic button below
+              </Text>
+            )}
+            {quickMode === 'bullet' && (
+              <Text className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 px-1">
+                {'\u{1F4CB}'} Add bullet points for your day
               </Text>
             )}
           </View>
@@ -884,26 +958,161 @@ export default function NewEntryScreen() {
             />
           </View>
 
-          {/* Journal Content */}
+          {/* Journal Content — mode-specific */}
           <View className="mt-4">
             <Text className="text-base font-semibold text-text-primary mb-2">
               Journal
             </Text>
-            <TextInput
-              ref={contentInputRef}
-              multiline
-              className="bg-input-bg rounded-xl p-4 text-base text-text-primary min-h-[200px]"
-              placeholder={
-                quickMode === 'oneline'
-                  ? 'How was your day in one sentence?'
-                  : "What's on your mind today? Even a few words count."
-              }
-              placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
-              value={content}
-              onChangeText={setContent}
-              textAlignVertical="top"
-              style={{ lineHeight: 24 }}
-            />
+
+            {/* Gratitude Mode */}
+            {quickMode === 'gratitude' && (
+              <View style={{ gap: 10 }}>
+                <View className="bg-input-bg rounded-xl px-4 py-3">
+                  <Text className="text-xs text-amber-600 dark:text-amber-400 font-semibold mb-1.5">
+                    {'\u{1F64F}'} Today I'm grateful for...
+                  </Text>
+                  <TextInput
+                    className="text-base text-text-primary"
+                    placeholder="Write something you're grateful for..."
+                    placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
+                    value={gratitudeLine1}
+                    onChangeText={setGratitudeLine1}
+                    multiline
+                  />
+                </View>
+                <View className="bg-input-bg rounded-xl px-4 py-3">
+                  <Text className="text-xs text-amber-600 dark:text-amber-400 font-semibold mb-1.5">
+                    {'\u{2B50}'} A small win today was...
+                  </Text>
+                  <TextInput
+                    className="text-base text-text-primary"
+                    placeholder="Even a tiny win counts..."
+                    placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
+                    value={gratitudeLine2}
+                    onChangeText={setGratitudeLine2}
+                    multiline
+                  />
+                </View>
+                <View className="bg-input-bg rounded-xl px-4 py-3">
+                  <Text className="text-xs text-amber-600 dark:text-amber-400 font-semibold mb-1.5">
+                    {'\u{1F604}'} Something that made me smile...
+                  </Text>
+                  <TextInput
+                    className="text-base text-text-primary"
+                    placeholder="Big or small, it matters..."
+                    placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
+                    value={gratitudeLine3}
+                    onChangeText={setGratitudeLine3}
+                    multiline
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* Bullet Mode */}
+            {quickMode === 'bullet' && (
+              <View>
+                {bulletItems.map((item, index) => (
+                  <View key={index} className="flex-row items-center mb-2">
+                    <View className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/40 items-center justify-center mr-2 mt-1">
+                      <Text className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                        {index + 1}
+                      </Text>
+                    </View>
+                    <TextInput
+                      className="flex-1 bg-input-bg rounded-xl px-4 py-3 text-base text-text-primary"
+                      placeholder={`Point ${index + 1}...`}
+                      placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
+                      value={item}
+                      onChangeText={(text) => updateBulletItem(index, text)}
+                    />
+                    {bulletItems.length > 1 && (
+                      <Pressable
+                        onPress={() => removeBulletItem(index)}
+                        className="ml-2 p-2"
+                      >
+                        <Ionicons name="close-circle" size={20} color={isDark ? '#64748B' : '#9CA3AF'} />
+                      </Pressable>
+                    )}
+                  </View>
+                ))}
+                <Pressable
+                  onPress={addBulletItem}
+                  className="flex-row items-center mt-1 py-2"
+                >
+                  <Ionicons name="add-circle-outline" size={20} color="#10B981" />
+                  <Text className="text-sm font-medium text-emerald-600 dark:text-emerald-400 ml-1.5">
+                    Add another point
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* Quick (One Line) Mode */}
+            {quickMode === 'oneline' && (
+              <View>
+                <TextInput
+                  ref={contentInputRef}
+                  className="bg-input-bg rounded-xl p-4 text-lg text-text-primary"
+                  placeholder="Capture in one sentence..."
+                  placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
+                  value={content}
+                  onChangeText={(text) => setContent(text.length <= 60 ? text : text.substring(0, 60))}
+                  maxLength={60}
+                />
+                <Text className="text-xs text-text-muted mt-1.5 text-right px-1">
+                  {content.length}/60
+                </Text>
+                <Text className="text-xs text-text-muted mt-0.5 px-1">
+                  Hit save when ready
+                </Text>
+              </View>
+            )}
+
+            {/* Voice mode — show transcript or prompt to record */}
+            {quickMode === 'voice' && (
+              <View>
+                {!audioUri && !isRecording && (
+                  <View className="bg-input-bg rounded-xl p-6 items-center">
+                    <Text className="text-3xl mb-3">{'\u{1F399}\u{FE0F}'}</Text>
+                    <Text className="text-sm font-semibold text-text-primary text-center">
+                      Starting voice recording...
+                    </Text>
+                    <Text className="text-xs text-text-muted text-center mt-1">
+                      Tap the mic below to begin
+                    </Text>
+                  </View>
+                )}
+                {transcriptText && (
+                  <TextInput
+                    ref={contentInputRef}
+                    multiline
+                    className="bg-input-bg rounded-xl p-4 text-base text-text-primary min-h-[160px]"
+                    placeholder="Your transcript will appear here..."
+                    placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
+                    value={content}
+                    onChangeText={setContent}
+                    textAlignVertical="top"
+                    style={{ lineHeight: 24 }}
+                  />
+                )}
+              </View>
+            )}
+
+            {/* Standard / Reflect modes — normal textarea */}
+            {(quickMode === 'free' || quickMode === 'reflect') && (
+              <TextInput
+                ref={contentInputRef}
+                multiline
+                className="bg-input-bg rounded-xl p-4 text-base text-text-primary min-h-[200px]"
+                placeholder="What's on your mind today? Even a few words count."
+                placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
+                value={content}
+                onChangeText={setContent}
+                textAlignVertical="top"
+                style={{ lineHeight: 24 }}
+              />
+            )}
           </View>
 
           {/* Activity Tags */}

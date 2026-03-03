@@ -24,6 +24,14 @@ import { cacheSet, cacheGet } from '../../lib/cache';
 import { MOOD_OPTIONS } from '../../types/journal';
 import type { JournalEntry, GuestEntry, JournalStreak } from '../../types/journal';
 
+interface OnThisDayEntry {
+  id: string;
+  mood_emoji: string;
+  mood_score: number;
+  content: string;
+  created_at: string;
+}
+
 // Time-aware greeting
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -105,6 +113,7 @@ export default function HomeScreen() {
   const [recentEntries, setRecentEntries] = useState<DisplayEntry[]>([]);
   const [streak, setStreak] = useState<JournalStreak | null>(null);
   const [todayMood, setTodayMood] = useState<DisplayEntry | null>(null);
+  const [onThisDay, setOnThisDay] = useState<OnThisDayEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isStale, setIsStale] = useState(false);
@@ -140,9 +149,10 @@ export default function HomeScreen() {
     try {
       setIsStale(false);
       if (isAuthenticated) {
-        const [entriesRes, streakRes] = await Promise.all([
+        const [entriesRes, streakRes, onThisDayRes] = await Promise.all([
           api.get('/journals?offset=0&limit=5'),
           api.get('/journals/streak').catch(() => ({ data: null })),
+          api.get('/journals/on-this-day').catch(() => ({ data: null })),
         ]);
 
         const entries: DisplayEntry[] = (entriesRes.data.entries || []).map(
@@ -160,6 +170,15 @@ export default function HomeScreen() {
 
         setRecentEntries(entries);
         setStreak(streakRes.data);
+
+        // On This Day
+        const otd = onThisDayRes.data;
+        if (otd && (otd.id || (Array.isArray(otd) && otd.length > 0))) {
+          const entry = Array.isArray(otd) ? otd[0] : otd;
+          setOnThisDay(entry as OnThisDayEntry);
+        } else {
+          setOnThisDay(null);
+        }
 
         // Review prompt on streak milestones
         const STREAK_MILESTONES = [7, 14, 30, 60, 100];
@@ -317,7 +336,7 @@ export default function HomeScreen() {
               <Pressable
                 onPress={() => {
                   hapticLight();
-                  router.push('/(protected)/insights');
+                  router.push('/(protected)/streak-details' as never);
                 }}
                 className="flex-row items-center bg-amber-50 dark:bg-amber-900/30 rounded-full px-3 py-1.5 border border-amber-200 dark:border-amber-700"
               >
@@ -330,7 +349,7 @@ export default function HomeScreen() {
                 {(streak?.grace_period_active || streak?.grace_active) && (
                   <View className="ml-1.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full px-1.5 py-0.5">
                     <Text className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-300">
-                      Freeze active
+                      Protected
                     </Text>
                   </View>
                 )}
@@ -351,12 +370,40 @@ export default function HomeScreen() {
 
         {/* Grace Period Banner */}
         {(streak?.grace_period_active || streak?.grace_active) && (
-          <View className="mx-6 mt-2 bg-amber-50 dark:bg-amber-900/20 rounded-xl px-4 py-2.5 flex-row items-center border border-amber-300 dark:border-amber-700">
-            <Text className="text-base mr-2">{'\u26A1'}</Text>
-            <Text className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex-1">
-              Streak Grace Active — Write today to keep your {currentStreak}-day streak!
-            </Text>
-          </View>
+          <Pressable
+            onPress={() => { hapticLight(); router.push('/(protected)/streak-details' as never); }}
+            className="mx-6 mt-2 bg-amber-50 dark:bg-amber-900/20 rounded-xl px-4 py-2.5 flex-row items-center border border-amber-300 dark:border-amber-700 active:opacity-80"
+          >
+            <Text className="text-base mr-2">{'\u{1F9CA}'}</Text>
+            <View className="flex-1">
+              <Text className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                Streak Protected
+              </Text>
+              <Text className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                Write today to keep your {currentStreak}-day streak!
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#D97706" />
+          </Pressable>
+        )}
+
+        {/* Streak At Risk Banner */}
+        {currentStreak > 0 && !todayMood && !(streak?.grace_period_active || streak?.grace_active) && (
+          <Pressable
+            onPress={() => { hapticLight(); router.push('/(protected)/new-entry'); }}
+            className="mx-6 mt-2 bg-red-50 dark:bg-red-900/20 rounded-xl px-4 py-2.5 flex-row items-center border border-red-200 dark:border-red-800 active:opacity-80"
+          >
+            <Text className="text-base mr-2">{'\u{2744}\u{FE0F}'}</Text>
+            <View className="flex-1">
+              <Text className="text-xs font-bold text-red-700 dark:text-red-400">
+                Streak at risk — log now
+              </Text>
+              <Text className="text-xs text-red-600 dark:text-red-500 mt-0.5">
+                Don't lose your {currentStreak}-day streak
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#EF4444" />
+          </Pressable>
         )}
 
         {/* Today's Mood Summary */}
@@ -616,6 +663,62 @@ export default function HomeScreen() {
             ))
           )}
         </View>
+
+        {/* On This Day */}
+        {onThisDay && (
+          <View className="mt-6 px-6">
+            <View className="flex-row items-center justify-between mb-3">
+              <View className="flex-row items-center">
+                <Text className="text-sm mr-1.5">{'\u{1F4C5}'}</Text>
+                <Text className="text-sm font-semibold text-text-secondary">
+                  On This Day
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => handleEntryPress(onThisDay.id)}
+              className="bg-surface-elevated rounded-2xl p-4 border border-border active:scale-[0.98]"
+              style={{
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: isDark ? 0.15 : 0.04,
+                shadowRadius: 3,
+                elevation: 1,
+              }}
+            >
+              <View className="flex-row items-center mb-2">
+                <Text className="text-2xl mr-2">{onThisDay.mood_emoji || '\u{1F4DD}'}</Text>
+                <View className="flex-1">
+                  <Text className="text-xs text-text-muted">
+                    {new Date(onThisDay.created_at).toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                </View>
+                <View
+                  className="rounded-full px-2 py-0.5"
+                  style={{ backgroundColor: `${getMoodColor(onThisDay.mood_score)}15` }}
+                >
+                  <Text
+                    className="text-xs font-bold"
+                    style={{ color: getMoodColor(onThisDay.mood_score) }}
+                  >
+                    {onThisDay.mood_score}
+                  </Text>
+                </View>
+              </View>
+              <Text className="text-sm text-text-secondary" numberOfLines={2}>
+                {onThisDay.content || 'No content'}
+              </Text>
+              <Text className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
+                See memory →
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Bottom spacing for tab bar */}
         <View className="h-24" />

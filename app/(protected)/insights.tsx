@@ -885,6 +885,30 @@ export default function InsightsScreen() {
             </Pressable>
           )}
 
+          {/* Ask About Your History — Quick Action */}
+          {isAuthenticated && (
+            <Pressable
+              onPress={() => {
+                hapticLight();
+                router.push('/(protected)/search?mode=ask' as never);
+              }}
+              className="bg-violet-50 dark:bg-violet-900/20 rounded-2xl p-4 mb-3 border border-violet-100 dark:border-violet-800 flex-row items-center active:opacity-80"
+            >
+              <View className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-800 items-center justify-center mr-3">
+                <Ionicons name="sparkles" size={20} color="#8B5CF6" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-violet-900 dark:text-violet-200">
+                  Ask about your history
+                </Text>
+                <Text className="text-xs text-violet-600 dark:text-violet-400 mt-0.5">
+                  "What made me happy last month?"
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={isDark ? '#8B5CF6' : '#7C3AED'} />
+            </Pressable>
+          )}
+
           {/* Mood Trend + Average Score Card */}
           <View className="bg-surface-elevated rounded-2xl p-5 mb-3 border border-border">
             <View className="flex-row items-center justify-between mb-4">

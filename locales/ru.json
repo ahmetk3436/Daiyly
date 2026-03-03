@@ -98,7 +98,10 @@
     "yesterday": "Вчера",
     "guestLimit": "Лимит гостя достигнут",
     "guestLimitBody": "Создайте бесплатный аккаунт, чтобы продолжить ведение дневника.",
-    "createAccount": "Создать аккаунт"
+    "createAccount": "Создать аккаунт",
+    "onThisDay": "В этот день",
+    "streakProtected": "Серия защищена",
+    "streakAtRisk": "Серия под угрозой — пишите сейчас"
   },
   "entry": {
     "newEntry": "Новая запись",
@@ -125,7 +128,17 @@
     "tagsLabel": "Теги",
     "sentimentPositive": "Позитивный",
     "sentimentNeutral": "Нейтральный",
-    "sentimentNegative": "Негативный"
+    "sentimentNegative": "Негативный",
+    "modeStandard": "Стандарт",
+    "modeQuick": "Быстро",
+    "modeGratitude": "Благодарность",
+    "modeBullets": "Список",
+    "modeVoice": "Голос",
+    "gratefulFor": "Сегодня я благодарен за...",
+    "smallWin": "Маленькая победа сегодня...",
+    "madeMeSmile": "Что-то, что заставило меня улыбнуться...",
+    "quickPlaceholder": "Запишите в одном предложении...",
+    "voiceStarting": "Запуск голосовой записи..."
   },
   "moods": {
     "happy": "Счастливый",
@@ -174,7 +187,16 @@
     "noResultsSubtitle": "Попробуйте другой запрос",
     "recentSearches": "Последние запросы",
     "unlockSearch": "Разблокировать полнотекстовый поиск",
-    "unlockSearchBody": "Мгновенный поиск по всем записям."
+    "unlockSearchBody": "Мгновенный поиск по всем записям.",
+    "askMode": "Спросить",
+    "searchMode": "Искать",
+    "askPlaceholder": "Что сделало вас счастливым в прошлом месяце?",
+    "searchingMemories": "Поиск ваших воспоминаний...",
+    "askYourJournal": "Спросите свой дневник",
+    "topThemes": "Главные темы",
+    "unlockJournalAI": "Разблокировать ИИ дневника",
+    "unlockJournalAIBody": "Задавайте вопросы о всей истории дневника с помощью ИИ",
+    "rateLimitReached": "Вы достигли дневного лимита запросов ИИ"
   },
   "settings": {
     "title": "Настройки",
@@ -215,7 +237,8 @@
     "changePassword": "Изменить пароль",
     "currentPassword": "Текущий пароль",
     "newPassword": "Новый пароль",
-    "passwordChanged": "Пароль успешно изменён"
+    "passwordChanged": "Пароль успешно изменён",
+    "exportCSV": "Экспорт в CSV"
   },
   "paywall": {
     "headline": "Познай себя, расти каждый день",

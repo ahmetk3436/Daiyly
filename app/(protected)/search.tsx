@@ -10,7 +10,7 @@ import {
   InteractionManager,
   ScrollView,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Sentry from '@sentry/react-native';
@@ -31,6 +31,8 @@ type SearchMode = 'keyword' | 'ask';
 interface AskResult {
   answer: string;
   referenced_dates: string[];
+  entries?: JournalEntry[];
+  top_themes?: string[];
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -56,7 +58,8 @@ function getMoodColor(score: number): string {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function SearchScreen() {
-  const [mode, setMode] = useState<SearchMode>('keyword');
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const [mode, setMode] = useState<SearchMode>(params.mode === 'ask' ? 'ask' : 'keyword');
 
   // ── Keyword search state ──
   const [query, setQuery] = useState('');
@@ -345,11 +348,15 @@ export default function SearchScreen() {
     setAskResult(null);
 
     try {
-      const response = await api.post('/journals/ask', { question: q });
+      const response = await api.post('/journals/ask', { query: q, days: 90, limit: 5 });
       setAskResult(response.data);
-    } catch (err) {
+    } catch (err: any) {
       Sentry.captureException(err);
-      setAskError('Could not get an answer. Please try again.');
+      if (err?.response?.status === 429) {
+        setAskError("You've reached today's AI query limit");
+      } else {
+        setAskError('Could not get an answer. Please try again.');
+      }
     } finally {
       setAskLoading(false);
     }
@@ -805,10 +812,10 @@ export default function SearchScreen() {
               <View className="mx-5 mt-4 bg-violet-50 dark:bg-violet-900/20 rounded-2xl p-5 border border-violet-100 dark:border-violet-800 items-center">
                 <ActivityIndicator size="small" color="#8B5CF6" />
                 <Text className="text-sm text-violet-700 dark:text-violet-300 font-medium mt-3">
-                  Thinking through your journal...
+                  Searching your memories...
                 </Text>
                 <Text className="text-xs text-violet-500 dark:text-violet-400 mt-1">
-                  Analyzing your entries
+                  Analyzing your journal entries
                 </Text>
               </View>
             )}
@@ -841,9 +848,64 @@ export default function SearchScreen() {
                   </Text>
                 </View>
 
-                {/* Referenced dates */}
-                {askResult.referenced_dates && askResult.referenced_dates.length > 0 && (
-                  <View className="bg-surface-elevated rounded-2xl p-4 border border-border">
+                {/* Top themes */}
+                {askResult.top_themes && askResult.top_themes.length > 0 && (
+                  <View className="mb-3">
+                    <Text className="text-xs font-semibold text-text-muted mb-2 uppercase tracking-wider px-1">
+                      Top themes
+                    </Text>
+                    <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                      {askResult.top_themes.map((theme, i) => (
+                        <View
+                          key={i}
+                          className="bg-violet-50 dark:bg-violet-900/30 border border-violet-100 dark:border-violet-800 rounded-full px-3 py-1.5"
+                        >
+                          <Text className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                            {theme}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Relevant entries */}
+                {askResult.entries && askResult.entries.length > 0 && (
+                  <View className="mb-3">
+                    <Text className="text-xs font-semibold text-text-muted mb-2 uppercase tracking-wider px-1">
+                      Related entries
+                    </Text>
+                    {askResult.entries.map((entry) => {
+                      const formattedDate = new Date(entry.created_at).toLocaleDateString('en-US', {
+                        weekday: 'short', month: 'short', day: 'numeric',
+                      });
+                      const preview = entry.content.length > 100
+                        ? entry.content.substring(0, 100) + '...'
+                        : entry.content;
+                      return (
+                        <Pressable
+                          key={entry.id}
+                          className="bg-surface-elevated rounded-xl p-3.5 mb-2 border border-border flex-row items-start active:opacity-75"
+                          onPress={() => {
+                            hapticLight();
+                            router.push(`/(protected)/entry/${entry.id}` as never);
+                          }}
+                        >
+                          <Text className="text-xl mr-2.5">{entry.mood_emoji || '\u{1F4DD}'}</Text>
+                          <View className="flex-1">
+                            <Text className="text-xs text-text-muted mb-0.5">{formattedDate}</Text>
+                            <Text className="text-sm text-text-secondary">{preview}</Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={16} color={isDark ? '#64748B' : '#9CA3AF'} />
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {/* Referenced dates (fallback when no entries array) */}
+                {(!askResult.entries || askResult.entries.length === 0) && askResult.referenced_dates && askResult.referenced_dates.length > 0 && (
+                  <View className="bg-surface-elevated rounded-2xl p-4 border border-border mb-3">
                     <Text className="text-xs font-semibold text-text-muted mb-2 uppercase tracking-wider">
                       Referenced entries
                     </Text>
@@ -873,7 +935,7 @@ export default function SearchScreen() {
 
                 {/* Ask again prompt */}
                 <Pressable
-                  className="mt-3 items-center py-3"
+                  className="mt-1 items-center py-3"
                   onPress={handleClearAsk}
                 >
                   <Text className="text-xs text-text-muted">

@@ -98,7 +98,10 @@
     "yesterday": "Hier",
     "guestLimit": "Limite invité atteinte",
     "guestLimitBody": "Créez un compte gratuit pour continuer à journaliser.",
-    "createAccount": "Créer un compte"
+    "createAccount": "Créer un compte",
+    "onThisDay": "En ce jour",
+    "streakProtected": "Série protégée",
+    "streakAtRisk": "Série en danger — écrivez maintenant"
   },
   "entry": {
     "newEntry": "Nouvelle entrée",
@@ -125,7 +128,17 @@
     "tagsLabel": "Tags",
     "sentimentPositive": "Positif",
     "sentimentNeutral": "Neutre",
-    "sentimentNegative": "Négatif"
+    "sentimentNegative": "Négatif",
+    "modeStandard": "Standard",
+    "modeQuick": "Rapide",
+    "modeGratitude": "Gratitude",
+    "modeBullets": "Points",
+    "modeVoice": "Voix",
+    "gratefulFor": "Aujourd'hui je suis reconnaissant pour...",
+    "smallWin": "Une petite victoire aujourd'hui était...",
+    "madeMeSmile": "Quelque chose qui m'a fait sourire...",
+    "quickPlaceholder": "Capturer en une phrase...",
+    "voiceStarting": "Démarrage de l'enregistrement vocal..."
   },
   "moods": {
     "happy": "Heureux",
@@ -174,7 +187,16 @@
     "noResultsSubtitle": "Essayez un autre terme de recherche",
     "recentSearches": "Recherches récentes",
     "unlockSearch": "Débloquer la recherche plein texte",
-    "unlockSearchBody": "Recherchez instantanément dans toutes vos entrées."
+    "unlockSearchBody": "Recherchez instantanément dans toutes vos entrées.",
+    "askMode": "Demander",
+    "searchMode": "Rechercher",
+    "askPlaceholder": "Qu'est-ce qui vous a rendu heureux le mois dernier ?",
+    "searchingMemories": "Recherche de vos souvenirs...",
+    "askYourJournal": "Demandez à votre journal",
+    "topThemes": "Thèmes principaux",
+    "unlockJournalAI": "Débloquer l'IA du journal",
+    "unlockJournalAIBody": "Posez des questions sur toute votre histoire de journal avec l'IA",
+    "rateLimitReached": "Vous avez atteint la limite de requêtes IA du jour"
   },
   "settings": {
     "title": "Paramètres",
@@ -215,7 +237,8 @@
     "changePassword": "Changer le mot de passe",
     "currentPassword": "Mot de passe actuel",
     "newPassword": "Nouveau mot de passe",
-    "passwordChanged": "Mot de passe changé avec succès"
+    "passwordChanged": "Mot de passe changé avec succès",
+    "exportCSV": "Exporter en CSV"
   },
   "paywall": {
     "headline": "Connais-toi, grandis chaque jour",
