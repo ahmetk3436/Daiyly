@@ -36,13 +36,14 @@ import { MOOD_OPTIONS } from '../../types/journal';
 
 const MOOD_SCORES: number[] = [20, 40, 60, 80, 100];
 
+// Must match backend CardColors allowlist in daiyly/models.go exactly.
 const CARD_COLORS: string[] = [
-  '#6366F1', // Indigo
-  '#8B5CF6', // Violet
-  '#EC4899', // Pink
-  '#EF4444', // Red
-  '#F97316', // Orange
-  '#22C55E', // Green
+  '#fef3c7', // Amber pastel
+  '#dbeafe', // Blue pastel
+  '#dcfce7', // Green pastel
+  '#fce7f3', // Pink pastel
+  '#ede9fe', // Violet pastel
+  '#fef2f2', // Red pastel
 ];
 
 const ACTIVITY_TAGS = [

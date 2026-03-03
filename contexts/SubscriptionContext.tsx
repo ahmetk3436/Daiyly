@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import * as Sentry from '@sentry/react-native';
 import {
   checkSubscriptionStatus,
@@ -38,6 +38,9 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [offerings, setOfferings] = useState<PurchasesOffering | null>(null);
+  // Re-entry guard: prevents double-tapping the purchase button from launching
+  // two concurrent RevenueCat purchase flows, which can produce duplicate charges.
+  const isPurchasing = useRef(false);
 
   const checkSubscription = async () => {
     try {
@@ -54,6 +57,8 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   const handlePurchase = async (
     pkg: PurchasesPackage,
   ): Promise<boolean> => {
+    if (isPurchasing.current) return false;
+    isPurchasing.current = true;
     setIsLoading(true);
     try {
       const success = await purchasePackage(pkg);
@@ -66,6 +71,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error('Purchase error:', error);
       return false;
     } finally {
+      isPurchasing.current = false;
       setIsLoading(false);
     }
   };

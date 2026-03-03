@@ -44,10 +44,13 @@ export const setTokens = async (
   accessToken: string,
   refreshToken: string,
 ): Promise<void> => {
+  // WHEN_UNLOCKED: tokens are not accessible in background — prevents background
+  // process reads. Default AfterFirstUnlock is too permissive for auth tokens.
+  const opts = { keychainAccessible: SecureStore.WHEN_UNLOCKED };
   // Write to SecureStore (primary) — parallel
   await Promise.all([
-    SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken).catch(() => {}),
-    SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken).catch(() => {}),
+    SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken, opts).catch(() => {}),
+    SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken, opts).catch(() => {}),
   ]);
   // Write AsyncStorage fallback only in Expo Go (development) — parallel
   if (isExpoGo) {

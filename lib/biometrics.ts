@@ -39,7 +39,8 @@ export async function authenticateWithBiometrics(
   const result = await LocalAuthentication.authenticateAsync({
     promptMessage,
     cancelLabel: 'Cancel',
-    disableDeviceFallback: true,
+    // disableDeviceFallback removed: setting it to true locks out users whose
+    // biometrics are unenrolled/removed, with no recovery path.
   });
 
   return result.success;
