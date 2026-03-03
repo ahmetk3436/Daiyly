@@ -1,6 +1,7 @@
 import '../global.css';
 import '../lib/i18n';
 import React, { useEffect, useState } from 'react';
+import { AppState, View } from 'react-native';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -52,6 +53,16 @@ function ThemedApp() {
 
 function RootLayout() {
   const [forceUpdate, setForceUpdate] = useState(false);
+  const [isBackground, setIsBackground] = useState(false);
+
+  // Blank the screen during app-switcher snapshot to protect journal privacy
+  // (FTC HBNR 2024: mental health/journaling data is covered health data).
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      setIsBackground(state === 'background' || state === 'inactive');
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -76,21 +87,24 @@ function RootLayout() {
   }, []);
 
   return (
-    <ErrorBoundary>
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <AuthProvider>
-            <PaywallConfigProvider>
-              <ThemedApp />
-            </PaywallConfigProvider>
-          </AuthProvider>
-        </ThemeProvider>
-        <ForceUpdateModal
-          visible={forceUpdate}
-          onDismiss={() => setForceUpdate(false)}
-        />
-      </SafeAreaProvider>
-    </ErrorBoundary>
+    <View className="flex-1">
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <PaywallConfigProvider>
+                <ThemedApp />
+              </PaywallConfigProvider>
+            </AuthProvider>
+          </ThemeProvider>
+          <ForceUpdateModal
+            visible={forceUpdate}
+            onDismiss={() => setForceUpdate(false)}
+          />
+        </SafeAreaProvider>
+      </ErrorBoundary>
+      {isBackground && <View className="absolute inset-0 bg-black" />}
+    </View>
   );
 }
 
