@@ -1,9 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import api from './api';
 import type { GuestEntry } from '../types/journal';
 
+// Use count is not sensitive — a plain counter is fine in AsyncStorage
 export const GUEST_USES_KEY = 'guest_uses_count';
-export const GUEST_ENTRIES_KEY = 'guest_entries';
+
+// Journal content is personal — store in SecureStore, one entry per key
+const GUEST_ENTRY_IDS_KEY = 'guest_entry_ids';
+const GUEST_ENTRY_PREFIX = 'guest_entry_';
 
 export async function getGuestUsesCount(): Promise<number> {
   try {
@@ -26,26 +31,54 @@ export async function hasGuestUsesRemaining(): Promise<boolean> {
   return count < 3;
 }
 
+async function getEntryIDs(): Promise<string[]> {
+  try {
+    const raw = await SecureStore.getItemAsync(GUEST_ENTRY_IDS_KEY);
+    if (raw) return JSON.parse(raw) as string[];
+  } catch {}
+  return [];
+}
+
+async function setEntryIDs(ids: string[]): Promise<void> {
+  await SecureStore.setItemAsync(GUEST_ENTRY_IDS_KEY, JSON.stringify(ids));
+}
+
 export async function saveGuestEntry(entry: GuestEntry): Promise<void> {
-  const existing = await getGuestEntries();
-  existing.push(entry);
-  await AsyncStorage.setItem(GUEST_ENTRIES_KEY, JSON.stringify(existing));
+  await SecureStore.setItemAsync(GUEST_ENTRY_PREFIX + entry.id, JSON.stringify(entry));
+  const ids = await getEntryIDs();
+  if (!ids.includes(entry.id)) {
+    ids.push(entry.id);
+    await setEntryIDs(ids);
+  }
 }
 
 export async function getGuestEntries(): Promise<GuestEntry[]> {
   try {
-    const value = await AsyncStorage.getItem(GUEST_ENTRIES_KEY);
-    if (value) {
-      return JSON.parse(value) as GuestEntry[];
+    const ids = await getEntryIDs();
+    const entries: GuestEntry[] = [];
+    for (const id of ids) {
+      try {
+        const raw = await SecureStore.getItemAsync(GUEST_ENTRY_PREFIX + id);
+        if (raw) entries.push(JSON.parse(raw) as GuestEntry);
+      } catch {}
     }
-    return [];
+    return entries;
   } catch {
     return [];
   }
 }
 
 export async function clearGuestData(): Promise<void> {
-  await AsyncStorage.multiRemove([GUEST_USES_KEY, GUEST_ENTRIES_KEY]);
+  const ids = await getEntryIDs();
+  for (const id of ids) {
+    try {
+      await SecureStore.deleteItemAsync(GUEST_ENTRY_PREFIX + id);
+    } catch {}
+  }
+  try {
+    await SecureStore.deleteItemAsync(GUEST_ENTRY_IDS_KEY);
+  } catch {}
+  await AsyncStorage.removeItem(GUEST_USES_KEY);
 }
 
 /**
@@ -74,12 +107,17 @@ export async function migrateGuestEntries(): Promise<number> {
   }
 
   if (migratedIds.size === guestEntries.length) {
-    // All entries migrated — full cleanup
     await clearGuestData();
   } else if (migratedIds.size > 0) {
-    // Partial success — remove only migrated entries, keep failures
-    const remaining = guestEntries.filter((e) => !migratedIds.has(e.id));
-    await AsyncStorage.setItem(GUEST_ENTRIES_KEY, JSON.stringify(remaining));
+    const remainingIDs = guestEntries
+      .filter((e) => !migratedIds.has(e.id))
+      .map((e) => e.id);
+    for (const id of migratedIds) {
+      try {
+        await SecureStore.deleteItemAsync(GUEST_ENTRY_PREFIX + id);
+      } catch {}
+    }
+    await setEntryIDs(remainingIDs);
   }
 
   return migratedIds.size;

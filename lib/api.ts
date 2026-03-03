@@ -13,8 +13,7 @@ import {
 const APP_ID = 'daiyly';
 
 // Protected app routes: /api/p/...
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || 'http://89.47.113.196:8099/api/p';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL as string;
 
 // Auth/public routes: /api/... (strip /p suffix if present)
 const AUTH_BASE_URL = API_BASE_URL.endsWith('/p')

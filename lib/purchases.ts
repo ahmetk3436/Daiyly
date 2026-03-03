@@ -30,7 +30,7 @@ export const initializePurchases = async () => {
   }
 
   try {
-    Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+    Purchases.setLogLevel(LOG_LEVEL.WARN);
     await Purchases.configure({ apiKey: API_KEY });
     isInitialized = true;
     console.log('[Purchases] RevenueCat initialized');
