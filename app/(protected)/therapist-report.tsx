@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../../lib/api';
 import { hapticLight, hapticSuccess, hapticError } from '../../lib/haptics';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface DateRange {
   from: string;
@@ -41,6 +42,7 @@ function formatDateRange(from: string, to: string): string {
 
 export default function TherapistReportScreen() {
   const { isDark } = useTheme();
+  const { isAuthenticated } = useAuth();
   const [data, setData] = useState<TherapistReportData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,8 +63,9 @@ export default function TherapistReportScreen() {
   }, []);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     fetchReport();
-  }, [fetchReport]);
+  }, [fetchReport, isAuthenticated]);
 
   const handleShare = async () => {
     if (!data) return;
