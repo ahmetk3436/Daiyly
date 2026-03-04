@@ -26,6 +26,7 @@ import { maybeRequestReview } from '../../lib/review';
 import { cacheSet, cacheGet } from '../../lib/cache';
 import { MOOD_OPTIONS } from '../../types/journal';
 import type { JournalEntry, GuestEntry, JournalStreak } from '../../types/journal';
+import OnThisDayCard from '../../components/ui/OnThisDayCard';
 
 // ─── Week In Review helpers ───────────────────────────────────────────────────
 
@@ -979,60 +980,30 @@ export default function HomeScreen() {
         </View>
 
         {/* On This Day */}
-        {onThisDay && (
-          <View className="mt-6 px-6">
-            <View className="flex-row items-center justify-between mb-3">
-              <View className="flex-row items-center">
-                <Text className="text-sm mr-1.5">{'\u{1F4C5}'}</Text>
-                <Text className="text-sm font-semibold text-text-secondary">
-                  {t('home.onThisDay')}
-                </Text>
-              </View>
-            </View>
-            <Pressable
-              onPress={() => handleEntryPress(onThisDay.id)}
-              className="bg-surface-elevated rounded-2xl p-4 border border-border active:scale-[0.98]"
-              style={{
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: isDark ? 0.15 : 0.04,
-                shadowRadius: 3,
-                elevation: 1,
-              }}
-            >
-              <View className="flex-row items-center mb-2">
-                <Text className="text-2xl mr-2">{onThisDay.mood_emoji || '\u{1F4DD}'}</Text>
-                <View className="flex-1">
-                  <Text className="text-xs text-text-muted">
-                    {new Date(onThisDay.created_at).toLocaleDateString('en-US', {
-                      weekday: 'short',
-                      month: 'long',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
-                  </Text>
-                </View>
-                <View
-                  className="rounded-full px-2 py-0.5"
-                  style={{ backgroundColor: `${getMoodColor(onThisDay.mood_score)}15` }}
-                >
-                  <Text
-                    className="text-xs font-bold"
-                    style={{ color: getMoodColor(onThisDay.mood_score) }}
-                  >
-                    {onThisDay.mood_score}
-                  </Text>
-                </View>
-              </View>
-              <Text className="text-sm text-text-secondary" numberOfLines={2}>
-                {onThisDay.content || t('home.noContent')}
-              </Text>
-              <Text className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
-                {t('home.seeMemory')}
-              </Text>
-            </Pressable>
-          </View>
-        )}
+        {onThisDay && (() => {
+          const entryDate = new Date(onThisDay.created_at);
+          const now = new Date();
+          const yearsAgo = now.getFullYear() - entryDate.getFullYear();
+          const fullEntry: JournalEntry = {
+            id: onThisDay.id,
+            user_id: '',
+            mood_emoji: onThisDay.mood_emoji,
+            mood_score: onThisDay.mood_score,
+            content: onThisDay.content,
+            photo_url: '',
+            card_color: '',
+            entry_date: onThisDay.created_at,
+            is_private: false,
+            created_at: onThisDay.created_at,
+            updated_at: onThisDay.created_at,
+          };
+          return (
+            <OnThisDayCard
+              entry={fullEntry}
+              yearsAgo={yearsAgo > 0 ? yearsAgo : 1}
+            />
+          );
+        })()}
 
         {/* Bottom spacing for tab bar */}
         <View className="h-24" />

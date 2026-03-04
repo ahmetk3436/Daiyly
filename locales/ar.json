@@ -448,7 +448,9 @@
     "therapistReportSubtitle": "شارك ملخص ٣٠ يوماً بالذكاء الاصطناعي مع معالجك",
     "upgradeToPremiumSubtitle": "$4.99/شهر أو $29.99/سنة",
     "useThisTime": "نعم، استخدم هذا",
-    "yourPassword": "كلمة مرورك"
+    "yourPassword": "كلمة مرورك",
+    "yearInReview": "Year in Review",
+    "yearInReviewSubtitle": "Your annual AI-powered summary"
   },
   "paywall": {
     "headline": "اعرف نفسك، انمُ كل يوم",
@@ -672,7 +674,7 @@
     "trendDeclining": "تراجع"
   },
   "writingPrompt": {
-    "useThis": "استخدم هذا \u2192",
+    "useThis": "استخدم هذا →",
     "different": "سؤال آخر",
     "skip": "تخطّي",
     "categories": {
@@ -704,5 +706,25 @@
     "title": "Ask Your Journal",
     "loading": "Thinking...",
     "error": "Could not get answer"
+  },
+  "onThisDay": {
+    "title": "On This Day",
+    "yearsAgo": "{{count}} Year Ago",
+    "yearsAgo_plural": "{{count}} Years Ago",
+    "read": "Read →"
+  },
+  "yearReview": {
+    "title": "{{year}} Year in Review",
+    "entries": "Entries",
+    "topEmotion": "Top Emotion",
+    "streak": "Longest Streak",
+    "themes": "Your Themes",
+    "share": "Share as Image"
+  },
+  "cognitiveReframe": {
+    "prompt": "Would you like to reflect further?",
+    "noThanks": "No thanks",
+    "addReflection": "Add reflection...",
+    "appendSuccess": "Reflection added"
   }
 }

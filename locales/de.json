@@ -448,7 +448,9 @@
     "smartScheduleTitle": "Smartes Zeitmanagement",
     "smartScheduleBody": "Basierend auf deinen Tagebuchgewohnheiten ist die beste Zeit {{time}}. Verwenden?",
     "notEnoughData": "Nicht genug Daten",
-    "notEnoughDataBody": "Führe mindestens 5-mal Tagebuch, um einen personalisierten Zeitplan zu erhalten."
+    "notEnoughDataBody": "Führe mindestens 5-mal Tagebuch, um einen personalisierten Zeitplan zu erhalten.",
+    "yearInReview": "Year in Review",
+    "yearInReviewSubtitle": "Your annual AI-powered summary"
   },
   "paywall": {
     "headline": "Sich selbst kennen, täglich wachsen",
@@ -660,7 +662,7 @@
     "trendDeclining": "Abnehmend"
   },
   "writingPrompt": {
-    "useThis": "Verwenden \u2192",
+    "useThis": "Verwenden →",
     "different": "Anderer Prompt",
     "skip": "Überspringen",
     "categories": {
@@ -704,5 +706,25 @@
     "title": "Ask Your Journal",
     "loading": "Thinking...",
     "error": "Could not get answer"
+  },
+  "onThisDay": {
+    "title": "On This Day",
+    "yearsAgo": "{{count}} Year Ago",
+    "yearsAgo_plural": "{{count}} Years Ago",
+    "read": "Read →"
+  },
+  "yearReview": {
+    "title": "{{year}} Year in Review",
+    "entries": "Entries",
+    "topEmotion": "Top Emotion",
+    "streak": "Longest Streak",
+    "themes": "Your Themes",
+    "share": "Share as Image"
+  },
+  "cognitiveReframe": {
+    "prompt": "Would you like to reflect further?",
+    "noThanks": "No thanks",
+    "addReflection": "Add reflection...",
+    "appendSuccess": "Reflection added"
   }
 }

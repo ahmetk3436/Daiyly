@@ -695,6 +695,23 @@ export default function SettingsScreen() {
             />
           </View>
 
+          {/* Year in Review */}
+          <SectionHeader title={t('settings.yearInReview')} />
+          <View className="bg-surface-elevated rounded-xl overflow-hidden border border-border">
+            <SettingsRow
+              icon="calendar-outline"
+              iconColor="#F59E0B"
+              label={t('yearReview.title', { year: new Date().getFullYear() - 1 })}
+              subtitle={t('settings.yearInReviewSubtitle')}
+              onPress={() => {
+                hapticLight();
+                requirePro('Year in Review', () => {
+                  router.push('/(protected)/year-in-review');
+                });
+              }}
+            />
+          </View>
+
           {/* Data & Sharing */}
           <SectionHeader title={t('settings.dataSharing')} />
           <View className="bg-surface-elevated rounded-xl overflow-hidden border border-border">

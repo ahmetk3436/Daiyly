@@ -448,7 +448,9 @@
     "smartScheduleTitle": "Smart Schedule",
     "smartScheduleBody": "Based on your journaling habits, the best time is {{time}}. Use this?",
     "notEnoughData": "Not Enough Data",
-    "notEnoughDataBody": "Journal at least 5 times to get a personalized schedule."
+    "notEnoughDataBody": "Journal at least 5 times to get a personalized schedule.",
+    "yearInReview": "Year in Review",
+    "yearInReviewSubtitle": "Your annual AI-powered summary"
   },
   "paywall": {
     "headline": "Know yourself, grow every day",
@@ -692,6 +694,26 @@
       "challenge": "Challenge",
       "growth": "Growth"
     }
+  },
+  "onThisDay": {
+    "title": "On This Day",
+    "yearsAgo": "{{count}} Year Ago",
+    "yearsAgo_plural": "{{count}} Years Ago",
+    "read": "Read →"
+  },
+  "yearReview": {
+    "title": "{{year}} Year in Review",
+    "entries": "Entries",
+    "topEmotion": "Top Emotion",
+    "streak": "Longest Streak",
+    "themes": "Your Themes",
+    "share": "Share as Image"
+  },
+  "cognitiveReframe": {
+    "prompt": "Would you like to reflect further?",
+    "noThanks": "No thanks",
+    "addReflection": "Add reflection...",
+    "appendSuccess": "Reflection added"
   },
   "healthKit": {
     "sleepVsMood": "Sleep vs Mood",

@@ -448,7 +448,9 @@
     "therapistReportSubtitle": "与治疗师分享30天AI摘要",
     "upgradeToPremiumSubtitle": "$4.99/月或$29.99/年",
     "useThisTime": "是的，使用此时间",
-    "yourPassword": "您的密码"
+    "yourPassword": "您的密码",
+    "yearInReview": "Year in Review",
+    "yearInReviewSubtitle": "Your annual AI-powered summary"
   },
   "paywall": {
     "headline": "了解自己，每天成长",
@@ -672,7 +674,7 @@
     "trendDeclining": "下降中"
   },
   "writingPrompt": {
-    "useThis": "使用此提示 \u2192",
+    "useThis": "使用此提示 →",
     "different": "换一个",
     "skip": "跳过",
     "categories": {
@@ -704,5 +706,25 @@
     "title": "Ask Your Journal",
     "loading": "Thinking...",
     "error": "Could not get answer"
+  },
+  "onThisDay": {
+    "title": "On This Day",
+    "yearsAgo": "{{count}} Year Ago",
+    "yearsAgo_plural": "{{count}} Years Ago",
+    "read": "Read →"
+  },
+  "yearReview": {
+    "title": "{{year}} Year in Review",
+    "entries": "Entries",
+    "topEmotion": "Top Emotion",
+    "streak": "Longest Streak",
+    "themes": "Your Themes",
+    "share": "Share as Image"
+  },
+  "cognitiveReframe": {
+    "prompt": "Would you like to reflect further?",
+    "noThanks": "No thanks",
+    "addReflection": "Add reflection...",
+    "appendSuccess": "Reflection added"
   }
 }

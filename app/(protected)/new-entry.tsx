@@ -40,6 +40,7 @@ import { MOOD_OPTIONS } from '../../types/journal';
 import { useTranslation } from 'react-i18next';
 import { analyzeTextEmotion, getEmotionColor, getEmotionEmoji, type EmotionAIResult } from '../../lib/emotionAI';
 import WritingPromptCard from '../../components/ui/WritingPromptCard';
+import { getReframeQuestions } from '../../lib/cognitiveReframe';
 
 // HealthKit is iOS-only and unavailable in Expo Go
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -199,6 +200,12 @@ export default function NewEntryScreen() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+  // Cognitive Reframe state
+  const [showReframe, setShowReframe] = useState(false);
+  const [savedEntryId, setSavedEntryId] = useState<string | null>(null);
+  const [reframeText, setReframeText] = useState('');
+  const [reframeSaving, setReframeSaving] = useState(false);
+  const [reframeSaved, setReframeSaved] = useState(false);
   const draftTimerRef = useRef<NodeJS.Timeout | null>(null);
   const draftRestoredTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentInputRef = useRef<TextInput>(null);
@@ -761,7 +768,9 @@ export default function NewEntryScreen() {
         if (finalPhotoUrl) payload.photo_url = finalPhotoUrl;
         if (transcriptText) payload.transcript = transcriptText;
 
-        await api.post('/journals', payload);
+        const saveRes = await api.post('/journals', payload);
+        const createdId: string = saveRes.data?.id || saveRes.data?.journal?.id || null;
+        if (createdId) setSavedEntryId(createdId);
       } else {
         const canUse = await hasGuestUsesRemaining();
         if (!canUse) {
@@ -805,6 +814,13 @@ export default function NewEntryScreen() {
         setHealthInsight(insight);
         // Auto-dismiss after 4 seconds, then navigate
         await new Promise<void>((res) => setTimeout(res, 4000));
+      }
+
+      // Cognitive Reframe: show for low-mood entries (score <= 40) for authenticated users
+      if (isAuthenticated && moodScore <= 40) {
+        setShowReframe(true);
+        // Don't navigate back yet — user may want to add a reflection
+        return;
       }
 
       router.back();
@@ -1685,6 +1701,129 @@ export default function NewEntryScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Cognitive Reframe Bottom Card */}
+      {showReframe && (() => {
+        const moodOption = MOOD_OPTIONS.find((m) => m.emoji === selectedMood);
+        const moodValue = moodOption?.value ?? 'default';
+        const questions = getReframeQuestions(moodValue);
+        return (
+          <Modal
+            visible={showReframe}
+            transparent
+            animationType="slide"
+            onRequestClose={() => { setShowReframe(false); router.back(); }}
+          >
+            <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
+              <Pressable
+                className="absolute inset-0"
+                onPress={() => { setShowReframe(false); router.back(); }}
+              />
+              <View className="bg-background rounded-t-3xl px-5 pt-5 pb-8">
+                {/* Handle bar */}
+                <View className="w-10 h-1 rounded-full bg-border self-center mb-4" />
+
+                <View className="flex-row items-center mb-1" style={{ gap: 8 }}>
+                  <Text className="text-lg">{'\u{1F9E0}'}</Text>
+                  <Text className="text-base font-bold text-text-primary">
+                    {t('cognitiveReframe.prompt')}
+                  </Text>
+                </View>
+                <Text className="text-xs text-text-muted mb-4">
+                  Entry saved. Tap a question to reflect further.
+                </Text>
+
+                {/* Question pills */}
+                <View style={{ gap: 8 }} className="mb-4">
+                  {questions.map((q) => (
+                    <Pressable
+                      key={q}
+                      onPress={() => {
+                        hapticSelection();
+                        setReframeText((prev) =>
+                          prev ? `${prev}\n\n${q}\n` : `${q}\n`
+                        );
+                      }}
+                      className="bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-xl px-4 py-3 active:opacity-70"
+                    >
+                      <Text className="text-sm text-blue-800 dark:text-blue-200 leading-5">
+                        {q}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {/* Reflection input */}
+                <TextInput
+                  className="bg-surface-elevated border border-border rounded-2xl px-4 py-3 text-sm text-text-primary mb-4"
+                  placeholder={t('cognitiveReframe.addReflection')}
+                  placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
+                  value={reframeText}
+                  onChangeText={setReframeText}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                  style={{ minHeight: 80 }}
+                />
+
+                {reframeSaved && (
+                  <Text className="text-xs text-green-600 dark:text-green-400 text-center mb-2">
+                    {t('cognitiveReframe.appendSuccess')}
+                  </Text>
+                )}
+
+                {/* Action buttons */}
+                <View className="flex-row" style={{ gap: 10 }}>
+                  <Pressable
+                    onPress={() => { hapticLight(); setShowReframe(false); router.back(); }}
+                    className="flex-1 rounded-2xl py-3 items-center border border-border bg-surface-muted active:opacity-70"
+                  >
+                    <Text className="text-sm font-medium text-text-secondary">
+                      {t('cognitiveReframe.noThanks')}
+                    </Text>
+                  </Pressable>
+
+                  {reframeText.trim() && savedEntryId && (
+                    <Pressable
+                      disabled={reframeSaving}
+                      onPress={async () => {
+                        if (!reframeText.trim() || !savedEntryId) return;
+                        hapticLight();
+                        setReframeSaving(true);
+                        try {
+                          await api.put(`/journals/${savedEntryId}`, {
+                            content: reframeText.trim(),
+                          });
+                          hapticSuccess();
+                          setReframeSaved(true);
+                          setTimeout(() => {
+                            setShowReframe(false);
+                            router.back();
+                          }, 900);
+                        } catch (err) {
+                          Sentry.captureException(err);
+                          hapticError();
+                        } finally {
+                          setReframeSaving(false);
+                        }
+                      }}
+                      className="flex-1 rounded-2xl py-3 items-center bg-blue-600 active:bg-blue-700"
+                    >
+                      {reframeSaving ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text className="text-sm font-semibold text-white">
+                          {t('common.save')}
+                        </Text>
+                      )}
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+            </View>
+          </Modal>
+        );
+      })()}
 
       {/* Photo Fullscreen Modal */}
       {photoUri && (

@@ -448,7 +448,9 @@
     "smartScheduleTitle": "Akıllı Zamanlama",
     "smartScheduleBody": "Günlük tutma alışkanlıklarınıza göre en iyi saat {{time}}. Kullanayım mı?",
     "notEnoughData": "Yeterli Veri Yok",
-    "notEnoughDataBody": "Kişiselleştirilmiş bir zamanlama almak için en az 5 kez günlük tutun."
+    "notEnoughDataBody": "Kişiselleştirilmiş bir zamanlama almak için en az 5 kez günlük tutun.",
+    "yearInReview": "Year in Review",
+    "yearInReviewSubtitle": "Your annual AI-powered summary"
   },
   "paywall": {
     "headline": "Kendinizi tanıyın, her gün büyüyün",
@@ -683,7 +685,7 @@
     "trendDeclining": "Düşüyor"
   },
   "writingPrompt": {
-    "useThis": "Bunu kullan \u2192",
+    "useThis": "Bunu kullan →",
     "different": "Farklı soru",
     "skip": "Geç",
     "categories": {
@@ -704,5 +706,25 @@
     "averaged": "Bu hafta ortalama {{hours}} saat uyudunuz.",
     "sleepLowMood": "Sadece {{hours}} saat uyudunuz — az uyku genellikle ruh halini etkiler",
     "sleepHighMood": "Harika uyku ({{hours}} saat) bugün ruh halinizi yükseltmiş olabilir"
+  },
+  "onThisDay": {
+    "title": "On This Day",
+    "yearsAgo": "{{count}} Year Ago",
+    "yearsAgo_plural": "{{count}} Years Ago",
+    "read": "Read →"
+  },
+  "yearReview": {
+    "title": "{{year}} Year in Review",
+    "entries": "Entries",
+    "topEmotion": "Top Emotion",
+    "streak": "Longest Streak",
+    "themes": "Your Themes",
+    "share": "Share as Image"
+  },
+  "cognitiveReframe": {
+    "prompt": "Would you like to reflect further?",
+    "noThanks": "No thanks",
+    "addReflection": "Add reflection...",
+    "appendSuccess": "Reflection added"
   }
 }

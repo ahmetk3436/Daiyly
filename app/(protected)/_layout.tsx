@@ -13,6 +13,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { hapticSelection } from '../../lib/haptics';
 import { authenticateWithBiometrics } from '../../lib/biometrics';
 import { scheduleSmartReminder } from '../../lib/smartReminders';
+import { getOnThisDayEntries, scheduleOnThisDayNotification } from '../../lib/onThisDay';
 import api from '../../lib/api';
 
 // In Expo Go (dev), biometric prompts may not function correctly.
@@ -60,6 +61,7 @@ const HIDDEN_TAB_ROUTES = [
   '/notification-center',
   '/sharing',
   '/therapist-report',
+  '/year-in-review',
 ];
 
 // Allowlist for deep-link navigation. Only these paths may be navigated to via
@@ -92,7 +94,7 @@ export default function ProtectedLayout() {
     }).catch(() => {});
   }, []);
 
-  // Schedule smart reminder after biometric unlock for authenticated users
+  // Schedule smart reminder and On This Day notification after biometric unlock
   useEffect(() => {
     if (!isUnlocked || !isAuthenticated || isLoading) return;
     (async () => {
@@ -104,6 +106,21 @@ export default function ProtectedLayout() {
         const entries: Array<{ created_at: string }> = entriesRes.data?.entries ?? [];
         const currentStreak: number = streakRes.data?.current_streak ?? 0;
         await scheduleSmartReminder(entries, currentStreak);
+      } catch {
+        // Non-critical — silently ignore
+      }
+
+      // On This Day notification: fetch more entries to find matches across years
+      try {
+        const res = await api.get('/journals?offset=0&limit=100').catch(() => ({ data: { entries: [] } }));
+        const allEntries = res.data?.entries ?? [];
+        const otdGroups = getOnThisDayEntries(allEntries);
+        if (otdGroups.length > 0) {
+          const firstGroup = otdGroups[0];
+          const firstEntry = firstGroup.entries[0];
+          const yearsAgo = Math.round(firstGroup.daysAgo / 365);
+          await scheduleOnThisDayNotification(firstEntry, yearsAgo);
+        }
       } catch {
         // Non-critical — silently ignore
       }

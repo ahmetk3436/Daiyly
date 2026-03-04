@@ -448,7 +448,9 @@
     "therapistReportSubtitle": "Share a 30-day AI summary with your therapist",
     "upgradeToPremiumSubtitle": "$4.99/mo or $29.99/yr",
     "useThisTime": "Yes, Use This",
-    "yourPassword": "Your password"
+    "yourPassword": "Your password",
+    "yearInReview": "Year in Review",
+    "yearInReviewSubtitle": "Your annual AI-powered summary"
   },
   "paywall": {
     "headline": "自分を知り、毎日成長する",
@@ -672,7 +674,7 @@
     "trendDeclining": "低下中"
   },
   "writingPrompt": {
-    "useThis": "使用する \u2192",
+    "useThis": "使用する →",
     "different": "別のプロンプト",
     "skip": "スキップ",
     "categories": {
@@ -704,5 +706,25 @@
     "title": "Ask Your Journal",
     "loading": "Thinking...",
     "error": "Could not get answer"
+  },
+  "onThisDay": {
+    "title": "On This Day",
+    "yearsAgo": "{{count}} Year Ago",
+    "yearsAgo_plural": "{{count}} Years Ago",
+    "read": "Read →"
+  },
+  "yearReview": {
+    "title": "{{year}} Year in Review",
+    "entries": "Entries",
+    "topEmotion": "Top Emotion",
+    "streak": "Longest Streak",
+    "themes": "Your Themes",
+    "share": "Share as Image"
+  },
+  "cognitiveReframe": {
+    "prompt": "Would you like to reflect further?",
+    "noThanks": "No thanks",
+    "addReflection": "Add reflection...",
+    "appendSuccess": "Reflection added"
   }
 }

@@ -448,7 +448,9 @@
     "therapistReportSubtitle": "Comparte un resumen IA de 30 días con tu terapeuta",
     "upgradeToPremiumSubtitle": "$4.99/mes o $29.99/año",
     "useThisTime": "Sí, usar este",
-    "yourPassword": "Tu contraseña"
+    "yourPassword": "Tu contraseña",
+    "yearInReview": "Year in Review",
+    "yearInReviewSubtitle": "Your annual AI-powered summary"
   },
   "paywall": {
     "headline": "Conócete, crece cada día",
@@ -672,7 +674,7 @@
     "trendDeclining": "Declinando"
   },
   "writingPrompt": {
-    "useThis": "Usar esto \u2192",
+    "useThis": "Usar esto →",
     "different": "Otra pregunta",
     "skip": "Omitir",
     "categories": {
@@ -704,5 +706,25 @@
     "title": "Ask Your Journal",
     "loading": "Thinking...",
     "error": "Could not get answer"
+  },
+  "onThisDay": {
+    "title": "On This Day",
+    "yearsAgo": "{{count}} Year Ago",
+    "yearsAgo_plural": "{{count}} Years Ago",
+    "read": "Read →"
+  },
+  "yearReview": {
+    "title": "{{year}} Year in Review",
+    "entries": "Entries",
+    "topEmotion": "Top Emotion",
+    "streak": "Longest Streak",
+    "themes": "Your Themes",
+    "share": "Share as Image"
+  },
+  "cognitiveReframe": {
+    "prompt": "Would you like to reflect further?",
+    "noThanks": "No thanks",
+    "addReflection": "Add reflection...",
+    "appendSuccess": "Reflection added"
   }
 }
