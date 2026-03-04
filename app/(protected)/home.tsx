@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import {
   View,
   Text,
+  TextInput,
   ScrollView,
   Pressable,
   RefreshControl,
@@ -20,7 +21,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import api from '../../lib/api';
 import { getGuestEntries } from '../../lib/guest';
-import { hapticLight, hapticSelection, hapticSuccess } from '../../lib/haptics';
+import { hapticLight, hapticSelection, hapticSuccess, hapticError } from '../../lib/haptics';
 import { maybeRequestReview } from '../../lib/review';
 import { cacheSet, cacheGet } from '../../lib/cache';
 import { MOOD_OPTIONS } from '../../types/journal';
@@ -213,6 +214,12 @@ export default function HomeScreen() {
   const celebrationScale = useRef(new Animated.Value(0)).current;
   const celebrationOpacity = useRef(new Animated.Value(0)).current;
 
+  // Ask Your Journal state
+  const [askQuestion, setAskQuestion] = useState('');
+  const [askAnswer, setAskAnswer] = useState<string | null>(null);
+  const [askLoading, setAskLoading] = useState(false);
+  const [askError, setAskError] = useState(false);
+
   const userName = user?.email?.split('@')[0] || 'there';
 
   // Compute week-in-review stats from recent entries
@@ -398,6 +405,32 @@ export default function HomeScreen() {
     hapticLight();
     router.push(`/(protected)/entry/${entryId}`);
   };
+
+  const handleAskJournal = useCallback(async () => {
+    const q = askQuestion.trim();
+    if (!q || !isAuthenticated) return;
+    hapticLight();
+    setAskLoading(true);
+    setAskAnswer(null);
+    setAskError(false);
+    try {
+      const { data } = await api.post('/journals/ask', { question: q });
+      const answer: string = data.answer || data.text || data.response || '';
+      if (answer) {
+        hapticSuccess();
+        setAskAnswer(answer);
+      } else {
+        setAskError(true);
+        hapticError();
+      }
+    } catch (err) {
+      Sentry.captureException(err);
+      setAskError(true);
+      hapticError();
+    } finally {
+      setAskLoading(false);
+    }
+  }, [askQuestion, isAuthenticated]);
 
   if (loading) {
     return (
@@ -740,6 +773,74 @@ export default function HomeScreen() {
                 <Text className="text-lg font-bold text-white mt-0.5">{weekStats.worstDay}</Text>
               </View>
             </View>
+          </View>
+        )}
+
+        {/* Ask Your Journal */}
+        {isAuthenticated && (
+          <View className="mt-6 px-6">
+            <Text className="text-sm font-semibold text-text-secondary mb-3">
+              {t('askJournal.title')}
+            </Text>
+            <View className="flex-row items-center bg-surface-elevated border border-border rounded-2xl overflow-hidden">
+              <TextInput
+                className="flex-1 px-4 py-3 text-sm text-text-primary"
+                placeholder={t('askJournal.placeholder')}
+                placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
+                value={askQuestion}
+                onChangeText={(text) => {
+                  setAskQuestion(text);
+                  if (askAnswer) setAskAnswer(null);
+                  if (askError) setAskError(false);
+                }}
+                returnKeyType="send"
+                onSubmitEditing={handleAskJournal}
+                editable={!askLoading}
+              />
+              <Pressable
+                onPress={handleAskJournal}
+                disabled={askLoading || !askQuestion.trim()}
+                className="px-4 py-3"
+              >
+                {askLoading ? (
+                  <ActivityIndicator size="small" color="#2563EB" />
+                ) : (
+                  <Ionicons
+                    name="send"
+                    size={18}
+                    color={askQuestion.trim() ? '#2563EB' : (isDark ? '#475569' : '#D1D5DB')}
+                  />
+                )}
+              </Pressable>
+            </View>
+            {askLoading && (
+              <Text className="text-xs text-text-muted mt-2 px-1">
+                {t('askJournal.loading')}
+              </Text>
+            )}
+            {askError && (
+              <Text className="text-xs text-red-500 mt-2 px-1">
+                {t('askJournal.error')}
+              </Text>
+            )}
+            {askAnswer && (
+              <View className="mt-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl px-4 py-3 border border-blue-100 dark:border-blue-800">
+                <View className="flex-row items-start" style={{ gap: 8 }}>
+                  <Ionicons name="sparkles" size={14} color="#2563EB" style={{ marginTop: 2 }} />
+                  <Text className="flex-1 text-sm text-text-primary leading-5">
+                    {askAnswer}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => { setAskAnswer(null); setAskQuestion(''); }}
+                  className="mt-2 self-end"
+                >
+                  <Text className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                    Ask something else →
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         )}
 

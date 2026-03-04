@@ -198,8 +198,32 @@ export default function NewEntryScreen() {
   const draftTimerRef = useRef<NodeJS.Timeout | null>(null);
   const contentInputRef = useRef<TextInput>(null);
 
-  // Quick entry mode
+  // Quick entry mode (must be declared before toggleDisplayMode)
   const [quickMode, setQuickMode] = useState<QuickEntryMode>('free');
+
+  // Top-level Quick/Full display mode (persisted)
+  const [isQuickDisplayMode, setIsQuickDisplayMode] = useState(false);
+
+  // Load persisted display mode preference
+  useEffect(() => {
+    AsyncStorage.getItem('@daiyly_entry_mode').then((val) => {
+      if (val === 'quick') {
+        setIsQuickDisplayMode(true);
+        setQuickMode('oneline');
+      }
+    }).catch(() => {});
+  }, []);
+
+  const toggleDisplayMode = useCallback((toQuick: boolean) => {
+    hapticSelection();
+    setIsQuickDisplayMode(toQuick);
+    AsyncStorage.setItem('@daiyly_entry_mode', toQuick ? 'quick' : 'full').catch(() => {});
+    if (toQuick) {
+      setQuickMode('oneline');
+    } else {
+      setQuickMode('free');
+    }
+  }, []);
 
   // Gratitude mode fields
   const [gratitudeLine1, setGratitudeLine1] = useState('');
@@ -913,7 +937,25 @@ export default function NewEntryScreen() {
           <Text className="text-lg font-semibold text-text-primary">
             {t('entry.newEntry')}
           </Text>
-          <View className="w-16" />
+          {/* Quick / Full toggle */}
+          <View className="flex-row bg-surface-muted rounded-lg p-0.5">
+            <Pressable
+              onPress={() => toggleDisplayMode(true)}
+              className={`px-3 py-1 rounded-md ${isQuickDisplayMode ? 'bg-background' : ''}`}
+            >
+              <Text className={`text-xs font-semibold ${isQuickDisplayMode ? 'text-text-primary' : 'text-text-muted'}`}>
+                {t('newEntry.modeQuick')}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => toggleDisplayMode(false)}
+              className={`px-3 py-1 rounded-md ${!isQuickDisplayMode ? 'bg-background' : ''}`}
+            >
+              <Text className={`text-xs font-semibold ${!isQuickDisplayMode ? 'text-text-primary' : 'text-text-muted'}`}>
+                {t('newEntry.modeFull')}
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         <ScrollView
@@ -937,50 +979,52 @@ export default function NewEntryScreen() {
             {encouragingPrompt}
           </Text>
 
-          {/* Quick Entry Mode Buttons */}
-          <View className="mt-4">
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}
-            >
-              {QUICK_ENTRY_MODES.map((mode) => {
-                const isSelected = quickMode === mode.id;
-                return (
-                  <Pressable
-                    key={mode.id}
-                    onPress={() => handleQuickMode(mode.id)}
-                    className={`flex-row items-center rounded-full px-3.5 py-2 border ${
-                      isSelected
-                        ? `${mode.selectedBgClass} border-transparent`
-                        : `${mode.bgClass} border-border`
-                    }`}
-                  >
-                    <Text className="text-sm mr-1">{mode.emoji}</Text>
-                    <Text
-                      className={`text-xs font-semibold ${
-                        isSelected ? mode.selectedTextClass : 'text-text-secondary'
+          {/* Quick Entry Mode Buttons — hidden in quick display mode */}
+          {!isQuickDisplayMode && (
+            <View className="mt-4">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}
+              >
+                {QUICK_ENTRY_MODES.map((mode) => {
+                  const isSelected = quickMode === mode.id;
+                  return (
+                    <Pressable
+                      key={mode.id}
+                      onPress={() => handleQuickMode(mode.id)}
+                      className={`flex-row items-center rounded-full px-3.5 py-2 border ${
+                        isSelected
+                          ? `${mode.selectedBgClass} border-transparent`
+                          : `${mode.bgClass} border-border`
                       }`}
                     >
-                      {mode.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+                      <Text className="text-sm mr-1">{mode.emoji}</Text>
+                      <Text
+                        className={`text-xs font-semibold ${
+                          isSelected ? mode.selectedTextClass : 'text-text-secondary'
+                        }`}
+                      >
+                        {mode.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
 
-            {/* Mode hints */}
-            {quickMode === 'voice' && !isRecording && !audioUri && (
-              <Text className="text-xs text-red-500 dark:text-red-400 mt-2 px-1">
-                {'\u{1F399}\u{FE0F}'} {t('entry.voiceAutoStarts')}
-              </Text>
-            )}
-            {quickMode === 'bullet' && (
-              <Text className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 px-1">
-                {'\u{1F4CB}'} {t('entry.addBulletPoints')}
-              </Text>
-            )}
-          </View>
+              {/* Mode hints */}
+              {quickMode === 'voice' && !isRecording && !audioUri && (
+                <Text className="text-xs text-red-500 dark:text-red-400 mt-2 px-1">
+                  {'\u{1F399}\u{FE0F}'} {t('entry.voiceAutoStarts')}
+                </Text>
+              )}
+              {quickMode === 'bullet' && (
+                <Text className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 px-1">
+                  {'\u{1F4CB}'} {t('entry.addBulletPoints')}
+                </Text>
+              )}
+            </View>
+          )}
 
           {/* Mood Selector */}
           <View className="mt-5">
@@ -1026,7 +1070,26 @@ export default function NewEntryScreen() {
             </View>
           </View>
 
-          {/* Mood Score */}
+          {/* Quick Display Mode: single-sentence input */}
+          {isQuickDisplayMode && (
+            <View className="mt-4">
+              <TextInput
+                ref={contentInputRef}
+                className="bg-input-bg rounded-xl p-4 text-lg text-text-primary"
+                placeholder={t('entry.quickPlaceholder')}
+                placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
+                value={content}
+                onChangeText={(text) => setContent(text.length <= 60 ? text : text.substring(0, 60))}
+                maxLength={60}
+              />
+              <Text className="text-xs text-text-muted mt-1.5 text-right px-1">
+                {content.length}/60
+              </Text>
+            </View>
+          )}
+
+          {/* Mood Score — hidden in quick display mode */}
+          {!isQuickDisplayMode && (
           <View className="mt-6">
             <View className="flex-row items-center justify-between mb-3">
               <Text className="text-base font-semibold text-text-primary">
@@ -1081,8 +1144,10 @@ export default function NewEntryScreen() {
               })}
             </View>
           </View>
+          )}
 
-          {/* Title Input */}
+          {/* Title Input — hidden in quick display mode */}
+          {!isQuickDisplayMode && (
           <View className="mt-6">
             <TextInput
               className="bg-input-bg rounded-xl px-4 py-3.5 text-base text-text-primary"
@@ -1093,8 +1158,10 @@ export default function NewEntryScreen() {
               maxLength={100}
             />
           </View>
+          )}
 
-          {/* Journal Content — mode-specific */}
+          {/* Journal Content — mode-specific — hidden in quick display mode */}
+          {!isQuickDisplayMode && (
           <View className="mt-4">
             <Text className="text-base font-semibold text-text-primary mb-2">
               Journal
@@ -1250,8 +1317,10 @@ export default function NewEntryScreen() {
               />
             )}
           </View>
+          )}
 
-          {/* Activity Tags */}
+          {/* Activity Tags — hidden in quick display mode */}
+          {!isQuickDisplayMode && (
           <View className="mt-6">
             <Text className="text-base font-semibold text-text-primary mb-3">
               Activities
@@ -1288,8 +1357,10 @@ export default function NewEntryScreen() {
               })}
             </View>
           </View>
+          )}
 
-          {/* Media Toolbar: Photo + Voice */}
+          {/* Media Toolbar: Photo + Voice — hidden in quick display mode */}
+          {!isQuickDisplayMode && (
           <View className="mt-6">
             <Text className="text-base font-semibold text-text-primary mb-3">
               Media
@@ -1479,8 +1550,10 @@ export default function NewEntryScreen() {
               </View>
             )}
           </View>
+          )}
 
-          {/* Card Color */}
+          {/* Card Color — hidden in quick display mode */}
+          {!isQuickDisplayMode && (
           <View className="mt-6">
             <Text className="text-base font-semibold text-text-primary mb-3">
               Card Color
@@ -1509,6 +1582,7 @@ export default function NewEntryScreen() {
               })}
             </View>
           </View>
+          )}
         </ScrollView>
 
         {/* Save Button (sticky bottom) */}

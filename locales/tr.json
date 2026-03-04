@@ -630,7 +630,23 @@
     "motivational14": "İki hafta güçlü! Günlük tutanların ilk %20'sindesiniz.",
     "motivational30": "Tam bir ay! Öz-farkındalığınız her gün büyüyor.",
     "motivational60": "İki ay geride. Gelecekteki siz bunun için çok minnettar olacak.",
-    "motivational100": "100+ gün. Günlük tutmayı kim olduğunuzun bir parçası yaptınız. Efsane."
+    "motivational100": "100+ gün. Günlük tutmayı kim olduğunuzun bir parçası yaptınız. Efsane.",
+    "graceDay": "İzin günü — serinizi korumak için bugün giriş yapın!"
+  },
+  "newEntry": {
+    "addPhoto": "Fotoğraf Ekle",
+    "recording": "Kaydediliyor...",
+    "tapToRecord": "Sesli not kaydetmek için dokun",
+    "transcribing": "Yazıya döküyor...",
+    "transcriptReady": "Transkript hazır — aşağıda düzenle",
+    "modeQuick": "Hızlı",
+    "modeFull": "Tam"
+  },
+  "askJournal": {
+    "placeholder": "Günlüğüne sor...",
+    "title": "Günlüğüne Sor",
+    "loading": "Düşünüyor...",
+    "error": "Cevap alınamadı"
   },
   "therapistReport": {
     "title": "Terapist Raporu",

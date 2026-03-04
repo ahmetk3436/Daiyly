@@ -642,7 +642,8 @@
     "title": "Detalles de la racha",
     "totalEntriesLabel": "Total de entradas",
     "writeTodayEntry": "Escribe la entrada de hoy",
-    "yourJourney": "Tu camino"
+    "yourJourney": "Tu camino",
+    "graceDay": "Grace day — log today to keep your streak!"
   },
   "therapistReport": {
     "basedOn_one": "Basado en {{count}} entrada de diario",
@@ -655,5 +656,20 @@
     "shareWithTherapist": "Compartir con el terapeuta",
     "summary30Day": "Resumen de 30 días",
     "title": "Informe del terapeuta"
+  },
+  "newEntry": {
+    "addPhoto": "Add Photo",
+    "recording": "Recording...",
+    "tapToRecord": "Tap to record voice note",
+    "transcribing": "Transcribing...",
+    "transcriptReady": "Transcript ready — edit below",
+    "modeQuick": "Quick",
+    "modeFull": "Full"
+  },
+  "askJournal": {
+    "placeholder": "Ask your journal...",
+    "title": "Ask Your Journal",
+    "loading": "Thinking...",
+    "error": "Could not get answer"
   }
 }

@@ -508,15 +508,51 @@
     "moodAmazing": "Amazing!",
     "back": "Back",
     "quotes": {
-      "happy": ["Sunshine lives inside you", "Today chose happiness", "Joy is a choice, and you chose well"],
-      "calm": ["Still waters, deep peace", "Breathe in calm, breathe out chaos", "Inner peace is your superpower"],
-      "excited": ["Energy is contagious — spread it", "Fully charged and unstoppable", "Lightning in a bottle kind of day"],
-      "sad": ["Even rain makes flowers grow", "It's okay to not be okay", "Tears water the soul"],
-      "angry": ["Feeling it so you can release it", "Anger is just passion misdirected", "This too shall pass"],
-      "anxious": ["One breath at a time", "You are stronger than your worries", "Anxiety lies — you've got this"],
-      "tired": ["Rest is not laziness, it's healing", "Your battery will recharge", "Even the sun sets to rise again"],
-      "neutral": ["Every feeling matters", "You checked in — that's growth", "Self-awareness is a superpower"],
-      "default": ["Every feeling matters", "You checked in — that's growth", "Self-awareness is a superpower"]
+      "happy": [
+        "Sunshine lives inside you",
+        "Today chose happiness",
+        "Joy is a choice, and you chose well"
+      ],
+      "calm": [
+        "Still waters, deep peace",
+        "Breathe in calm, breathe out chaos",
+        "Inner peace is your superpower"
+      ],
+      "excited": [
+        "Energy is contagious — spread it",
+        "Fully charged and unstoppable",
+        "Lightning in a bottle kind of day"
+      ],
+      "sad": [
+        "Even rain makes flowers grow",
+        "It's okay to not be okay",
+        "Tears water the soul"
+      ],
+      "angry": [
+        "Feeling it so you can release it",
+        "Anger is just passion misdirected",
+        "This too shall pass"
+      ],
+      "anxious": [
+        "One breath at a time",
+        "You are stronger than your worries",
+        "Anxiety lies — you've got this"
+      ],
+      "tired": [
+        "Rest is not laziness, it's healing",
+        "Your battery will recharge",
+        "Even the sun sets to rise again"
+      ],
+      "neutral": [
+        "Every feeling matters",
+        "You checked in — that's growth",
+        "Self-awareness is a superpower"
+      ],
+      "default": [
+        "Every feeling matters",
+        "You checked in — that's growth",
+        "Self-awareness is a superpower"
+      ]
     }
   },
   "recovery": {
@@ -594,7 +630,23 @@
     "motivational14": "Two weeks strong! You're in the top 20% of journalers.",
     "motivational30": "A full month! Your self-awareness is growing every single day.",
     "motivational60": "Two months deep. Future you will be so grateful for this.",
-    "motivational100": "100+ days. You've made journaling part of who you are. Legendary."
+    "motivational100": "100+ days. You've made journaling part of who you are. Legendary.",
+    "graceDay": "Grace day — log today to keep your streak!"
+  },
+  "newEntry": {
+    "addPhoto": "Add Photo",
+    "recording": "Recording...",
+    "tapToRecord": "Tap to record voice note",
+    "transcribing": "Transcribing...",
+    "transcriptReady": "Transcript ready — edit below",
+    "modeQuick": "Quick",
+    "modeFull": "Full"
+  },
+  "askJournal": {
+    "placeholder": "Ask your journal...",
+    "title": "Ask Your Journal",
+    "loading": "Thinking...",
+    "error": "Could not get answer"
   },
   "therapistReport": {
     "title": "Therapist Report",

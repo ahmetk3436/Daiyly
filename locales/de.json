@@ -630,7 +630,8 @@
     "motivational14": "Zwei Wochen stark! Du bist unter den Top 20 % der Tagebuchschreiber.",
     "motivational30": "Ein ganzer Monat! Dein Selbstbewusstsein wächst jeden Tag.",
     "motivational60": "Zwei Monate tief. Dein zukünftiges Ich wird so dankbar sein.",
-    "motivational100": "100+ Tage. Du hast Tagebuchschreiben zu einem Teil von dir gemacht. Legendär."
+    "motivational100": "100+ Tage. Du hast Tagebuchschreiben zu einem Teil von dir gemacht. Legendär.",
+    "graceDay": "Grace day — log today to keep your streak!"
   },
   "therapistReport": {
     "title": "Therapeutenbericht",
@@ -655,5 +656,20 @@
     "averaged": "Du hast diese Woche durchschnittlich {{hours}} Std. geschlafen.",
     "sleepLowMood": "Du hast nur {{hours}} Std. geschlafen — wenig Schlaf beeinflusst oft die Stimmung",
     "sleepHighMood": "Guter Schlaf ({{hours}} Std.) hat deine Stimmung wahrscheinlich gesteigert"
+  },
+  "newEntry": {
+    "addPhoto": "Add Photo",
+    "recording": "Recording...",
+    "tapToRecord": "Tap to record voice note",
+    "transcribing": "Transcribing...",
+    "transcriptReady": "Transcript ready — edit below",
+    "modeQuick": "Quick",
+    "modeFull": "Full"
+  },
+  "askJournal": {
+    "placeholder": "Ask your journal...",
+    "title": "Ask Your Journal",
+    "loading": "Thinking...",
+    "error": "Could not get answer"
   }
 }

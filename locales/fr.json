@@ -642,7 +642,8 @@
     "title": "Détails de la série",
     "totalEntriesLabel": "Total des entrées",
     "writeTodayEntry": "Écrire l'entrée d'aujourd'hui",
-    "yourJourney": "Votre parcours"
+    "yourJourney": "Votre parcours",
+    "graceDay": "Grace day — log today to keep your streak!"
   },
   "therapistReport": {
     "basedOn_one": "Basé sur {{count}} entrée de journal",
@@ -655,5 +656,20 @@
     "shareWithTherapist": "Partager avec le thérapeute",
     "summary30Day": "Résumé 30 jours",
     "title": "Rapport thérapeute"
+  },
+  "newEntry": {
+    "addPhoto": "Add Photo",
+    "recording": "Recording...",
+    "tapToRecord": "Tap to record voice note",
+    "transcribing": "Transcribing...",
+    "transcriptReady": "Transcript ready — edit below",
+    "modeQuick": "Quick",
+    "modeFull": "Full"
+  },
+  "askJournal": {
+    "placeholder": "Ask your journal...",
+    "title": "Ask Your Journal",
+    "loading": "Thinking...",
+    "error": "Could not get answer"
   }
 }
