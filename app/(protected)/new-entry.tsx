@@ -199,6 +199,7 @@ export default function NewEntryScreen() {
   const [saving, setSaving] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const draftTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const draftRestoredTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentInputRef = useRef<TextInput>(null);
 
   // Quick entry mode (must be declared before toggleDisplayMode)
@@ -283,7 +284,7 @@ export default function NewEntryScreen() {
           if (draft.photoUri) setPhotoUri(draft.photoUri);
           if (draft.audioUri) setAudioUri(draft.audioUri);
           setDraftRestored(true);
-          setTimeout(() => setDraftRestored(false), 3000);
+          draftRestoredTimerRef.current = setTimeout(() => setDraftRestored(false), 3000);
         }
       } catch {}
     }).catch(() => {});
@@ -300,6 +301,7 @@ export default function NewEntryScreen() {
       }
       if (durationTimerRef.current) clearInterval(durationTimerRef.current);
       if (meteringTimerRef.current) clearInterval(meteringTimerRef.current);
+      if (draftRestoredTimerRef.current) clearTimeout(draftRestoredTimerRef.current);
     };
   }, []);
 
@@ -1332,6 +1334,7 @@ export default function NewEntryScreen() {
                 onChangeText={setContent}
                 textAlignVertical="top"
                 style={{ lineHeight: 24 }}
+                maxLength={50000}
               />
             )}
 

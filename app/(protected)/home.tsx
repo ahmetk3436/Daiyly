@@ -213,6 +213,7 @@ export default function HomeScreen() {
   const [intentBanner, setIntentBanner] = useState<string | null>(null);
   const celebrationScale = useRef(new Animated.Value(0)).current;
   const celebrationOpacity = useRef(new Animated.Value(0)).current;
+  const celebrationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Ask Your Journal state
   const [askQuestion, setAskQuestion] = useState('');
@@ -241,6 +242,13 @@ export default function HomeScreen() {
         // non-critical, ignore
       }
     })();
+  }, []);
+
+  // Clean up celebration timer on unmount
+  useEffect(() => {
+    return () => {
+      if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current);
+    };
   }, []);
 
   // Animate celebration in when streakCelebration becomes true
@@ -312,7 +320,8 @@ export default function HomeScreen() {
           hapticSuccess();
           setCelebrationStreak(cs);
           setStreakCelebration(true);
-          setTimeout(() => setStreakCelebration(false), 3000);
+          if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current);
+          celebrationTimerRef.current = setTimeout(() => setStreakCelebration(false), 3000);
         }
 
         // Cache for offline use
