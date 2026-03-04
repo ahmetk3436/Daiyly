@@ -655,7 +655,32 @@
     "reportContent": "محتوى التقرير",
     "shareWithTherapist": "مشاركة مع المعالج",
     "summary30Day": "ملخص ٣٠ يوماً",
-    "title": "تقرير المعالج"
+    "title": "تقرير المعالج",
+    "subtitle": "تحليل ذكاء اصطناعي لـ 30 يوماً",
+    "overview": "نظرة عامة",
+    "entries": "{{count}} مدخلة",
+    "avgMood": "متوسط المزاج {{score}}/5",
+    "topThemes": "المواضيع الرئيسية",
+    "aiSummary": "ملخص الذكاء الاصطناعي",
+    "highlights": "أبرز اللحظات",
+    "recommendations": "التوصيات",
+    "shareReport": "مشاركة التقرير",
+    "notEnoughData": "اكتب 5 مدخلات على الأقل لإنشاء تقريرك",
+    "generated": "تم الإنشاء {{date}}",
+    "trendImproving": "تحسّن",
+    "trendStable": "مستقر",
+    "trendDeclining": "تراجع"
+  },
+  "writingPrompt": {
+    "useThis": "استخدم هذا \u2192",
+    "different": "سؤال آخر",
+    "skip": "تخطّي",
+    "categories": {
+      "gratitude": "الامتنان",
+      "reflection": "التأمل",
+      "challenge": "التحدي",
+      "growth": "النمو"
+    }
   },
   "newEntry": {
     "addPhoto": "Add Photo",

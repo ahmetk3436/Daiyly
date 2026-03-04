@@ -39,6 +39,7 @@ import { trackEntrySaved } from '../../lib/review';
 import { MOOD_OPTIONS } from '../../types/journal';
 import { useTranslation } from 'react-i18next';
 import { analyzeTextEmotion, getEmotionColor, getEmotionEmoji, type EmotionAIResult } from '../../lib/emotionAI';
+import WritingPromptCard from '../../components/ui/WritingPromptCard';
 
 // HealthKit is iOS-only and unavailable in Expo Go
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -998,6 +999,14 @@ export default function NewEntryScreen() {
           <Text className="text-xs text-text-muted text-center mt-4 px-4">
             {encouragingPrompt}
           </Text>
+
+          {/* Writing Prompt Card — shown when content is empty, hidden in quick display mode */}
+          {!isQuickDisplayMode && content === '' && quickMode === 'free' && (
+            <WritingPromptCard
+              mood={selectedMood}
+              onSelectPrompt={(text) => setContent(text)}
+            />
+          )}
 
           {/* Quick Entry Mode Buttons — hidden in quick display mode */}
           {!isQuickDisplayMode && (

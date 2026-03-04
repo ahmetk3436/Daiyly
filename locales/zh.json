@@ -655,7 +655,32 @@
     "reportContent": "报告内容",
     "shareWithTherapist": "与治疗师分享",
     "summary30Day": "30天总结",
-    "title": "治疗师报告"
+    "title": "治疗师报告",
+    "subtitle": "30天AI分析",
+    "overview": "概览",
+    "entries": "{{count}}条",
+    "avgMood": "平均心情 {{score}}/5",
+    "topThemes": "主要主题",
+    "aiSummary": "AI摘要",
+    "highlights": "亮点",
+    "recommendations": "建议",
+    "shareReport": "分享报告",
+    "notEnoughData": "至少写5条日记才能生成报告",
+    "generated": "生成于{{date}}",
+    "trendImproving": "改善中",
+    "trendStable": "稳定",
+    "trendDeclining": "下降中"
+  },
+  "writingPrompt": {
+    "useThis": "使用此提示 \u2192",
+    "different": "换一个",
+    "skip": "跳过",
+    "categories": {
+      "gratitude": "感恩",
+      "reflection": "反思",
+      "challenge": "挑战",
+      "growth": "成长"
+    }
   },
   "newEntry": {
     "addPhoto": "Add Photo",

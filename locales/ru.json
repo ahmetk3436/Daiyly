@@ -655,7 +655,32 @@
     "reportContent": "Содержимое отчёта",
     "shareWithTherapist": "Поделиться с терапевтом",
     "summary30Day": "Сводка за 30 дней",
-    "title": "Отчёт для терапевта"
+    "title": "Отчёт для терапевта",
+    "subtitle": "30-дневный AI-анализ",
+    "overview": "Обзор",
+    "entries": "{{count}} записей",
+    "avgMood": "Среднее настроение {{score}}/5",
+    "topThemes": "Основные темы",
+    "aiSummary": "AI-сводка",
+    "highlights": "Ключевые моменты",
+    "recommendations": "Рекомендации",
+    "shareReport": "Поделиться отчётом",
+    "notEnoughData": "Напишите не менее 5 записей для создания отчёта",
+    "generated": "Создано {{date}}",
+    "trendImproving": "Улучшается",
+    "trendStable": "Стабильно",
+    "trendDeclining": "Снижается"
+  },
+  "writingPrompt": {
+    "useThis": "Использовать \u2192",
+    "different": "Другой вопрос",
+    "skip": "Пропустить",
+    "categories": {
+      "gratitude": "Благодарность",
+      "reflection": "Рефлексия",
+      "challenge": "Вызов",
+      "growth": "Рост"
+    }
   },
   "newEntry": {
     "addPhoto": "Add Photo",

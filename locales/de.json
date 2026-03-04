@@ -635,6 +635,7 @@
   },
   "therapistReport": {
     "title": "Therapeutenbericht",
+    "subtitle": "30-Tage-KI-Analyse",
     "generating": "Bericht wird erstellt...",
     "couldNotGenerate": "Bericht konnte nicht erstellt werden. Bitte später erneut versuchen.",
     "summary30Day": "30-Tage-Zusammenfassung",
@@ -643,7 +644,31 @@
     "reportContent": "Berichtsinhalt",
     "confidentialNote": "Dieser Bericht ist vertraulich. Nur mit deinem Gesundheitsdienstleister teilen.",
     "shareWithTherapist": "Mit Therapeuten teilen",
-    "generatedBy": "Erstellt von Daiyly • Vertraulich"
+    "generatedBy": "Erstellt von Daiyly • Vertraulich",
+    "overview": "Übersicht",
+    "entries": "{{count}} Einträge",
+    "avgMood": "Durchschn. Stimmung {{score}}/5",
+    "topThemes": "Hauptthemen",
+    "aiSummary": "KI-Zusammenfassung",
+    "highlights": "Höhepunkte",
+    "recommendations": "Empfehlungen",
+    "shareReport": "Bericht teilen",
+    "notEnoughData": "Schreibe mindestens 5 Einträge, um deinen Bericht zu erstellen",
+    "generated": "Erstellt am {{date}}",
+    "trendImproving": "Verbessernd",
+    "trendStable": "Stabil",
+    "trendDeclining": "Abnehmend"
+  },
+  "writingPrompt": {
+    "useThis": "Verwenden \u2192",
+    "different": "Anderer Prompt",
+    "skip": "Überspringen",
+    "categories": {
+      "gratitude": "Dankbarkeit",
+      "reflection": "Reflexion",
+      "challenge": "Herausforderung",
+      "growth": "Wachstum"
+    }
   },
   "healthKit": {
     "sleepVsMood": "Schlaf vs. Stimmung",

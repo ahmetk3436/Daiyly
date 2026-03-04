@@ -1557,6 +1557,21 @@ export default function InsightsScreen() {
                   AI is reviewing your entries — this can take up to 30 seconds
                 </Text>
               )}
+
+              {/* Full report screen link */}
+              <Pressable
+                className="mt-2 flex-row items-center justify-center py-2 active:opacity-70"
+                onPress={() => {
+                  hapticLight();
+                  router.push('/(protected)/therapist-report');
+                }}
+              >
+                <Ionicons name="document-text-outline" size={14} color="#2563EB" />
+                <Text className="text-xs font-semibold text-blue-600 dark:text-blue-400 ml-1">
+                  View Full Report
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color="#2563EB" />
+              </Pressable>
             </View>
           )}
         </View>

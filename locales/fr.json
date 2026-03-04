@@ -655,7 +655,32 @@
     "reportContent": "Contenu du rapport",
     "shareWithTherapist": "Partager avec le thérapeute",
     "summary30Day": "Résumé 30 jours",
-    "title": "Rapport thérapeute"
+    "title": "Rapport thérapeute",
+    "subtitle": "Analyse IA sur 30 jours",
+    "overview": "Aperçu",
+    "entries": "{{count}} entrées",
+    "avgMood": "Humeur moy. {{score}}/5",
+    "topThemes": "Thèmes principaux",
+    "aiSummary": "Résumé IA",
+    "highlights": "Points forts",
+    "recommendations": "Recommandations",
+    "shareReport": "Partager le rapport",
+    "notEnoughData": "Écrivez au moins 5 entrées pour générer votre rapport",
+    "generated": "Généré le {{date}}",
+    "trendImproving": "En amélioration",
+    "trendStable": "Stable",
+    "trendDeclining": "En baisse"
+  },
+  "writingPrompt": {
+    "useThis": "Utiliser \u2192",
+    "different": "Autre question",
+    "skip": "Passer",
+    "categories": {
+      "gratitude": "Gratitude",
+      "reflection": "Réflexion",
+      "challenge": "Défi",
+      "growth": "Croissance"
+    }
   },
   "newEntry": {
     "addPhoto": "Add Photo",

@@ -658,6 +658,7 @@
   },
   "therapistReport": {
     "title": "Terapist Raporu",
+    "subtitle": "30 günlük AI analizi",
     "generating": "Raporunuz oluşturuluyor...",
     "couldNotGenerate": "Rapor oluşturulamadı. Lütfen daha sonra tekrar deneyin.",
     "summary30Day": "30 Günlük Özet",
@@ -666,7 +667,31 @@
     "reportContent": "Rapor İçeriği",
     "confidentialNote": "Bu rapor gizlidir. Yalnızca sağlık uzmanınızla paylaşın.",
     "shareWithTherapist": "Terapistinizle Paylaşın",
-    "generatedBy": "Daiyly tarafından oluşturuldu • Gizli"
+    "generatedBy": "Daiyly tarafından oluşturuldu • Gizli",
+    "overview": "Genel Bakış",
+    "entries": "{{count}} giriş",
+    "avgMood": "Ort. ruh hali {{score}}/5",
+    "topThemes": "Başlıca Temalar",
+    "aiSummary": "AI Özeti",
+    "highlights": "Öne Çıkanlar",
+    "recommendations": "Öneriler",
+    "shareReport": "Raporu Paylaş",
+    "notEnoughData": "Raporunuzu oluşturmak için en az 5 giriş yazın",
+    "generated": "{{date}} tarihinde oluşturuldu",
+    "trendImproving": "İyileşiyor",
+    "trendStable": "Kararlı",
+    "trendDeclining": "Düşüyor"
+  },
+  "writingPrompt": {
+    "useThis": "Bunu kullan \u2192",
+    "different": "Farklı soru",
+    "skip": "Geç",
+    "categories": {
+      "gratitude": "Şükran",
+      "reflection": "Yansıma",
+      "challenge": "Meydan Okuma",
+      "growth": "Büyüme"
+    }
   },
   "healthKit": {
     "sleepVsMood": "Uyku ve Ruh Hali",

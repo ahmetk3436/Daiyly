@@ -655,7 +655,32 @@
     "reportContent": "Contenuto del report",
     "shareWithTherapist": "Condividi con il terapeuta",
     "summary30Day": "Riepilogo 30 giorni",
-    "title": "Report terapeuta"
+    "title": "Report terapeuta",
+    "subtitle": "Analisi IA 30 giorni",
+    "overview": "Panoramica",
+    "entries": "{{count}} voci",
+    "avgMood": "Umore medio {{score}}/5",
+    "topThemes": "Temi principali",
+    "aiSummary": "Sintesi IA",
+    "highlights": "Momenti salienti",
+    "recommendations": "Raccomandazioni",
+    "shareReport": "Condividi report",
+    "notEnoughData": "Scrivi almeno 5 voci per generare il tuo report",
+    "generated": "Generato il {{date}}",
+    "trendImproving": "In miglioramento",
+    "trendStable": "Stabile",
+    "trendDeclining": "In calo"
+  },
+  "writingPrompt": {
+    "useThis": "Usa questo \u2192",
+    "different": "Altro prompt",
+    "skip": "Salta",
+    "categories": {
+      "gratitude": "Gratitudine",
+      "reflection": "Riflessione",
+      "challenge": "Sfida",
+      "growth": "Crescita"
+    }
   },
   "newEntry": {
     "addPhoto": "Add Photo",
