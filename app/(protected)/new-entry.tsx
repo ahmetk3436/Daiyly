@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
+import Constants from 'expo-constants';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import api from '../../lib/api';
@@ -36,6 +37,19 @@ import {
 } from '../../lib/haptics';
 import { trackEntrySaved } from '../../lib/review';
 import { MOOD_OPTIONS } from '../../types/journal';
+import { useTranslation } from 'react-i18next';
+
+// HealthKit is iOS-only and unavailable in Expo Go
+const isExpoGo = Constants.appOwnership === 'expo';
+let AppleHealthKit: any = null;
+if (Platform.OS === 'ios' && !isExpoGo) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    AppleHealthKit = require('react-native-health').default;
+  } catch {
+    AppleHealthKit = null;
+  }
+}
 
 const MOOD_SCORES: number[] = [20, 40, 60, 80, 100];
 
@@ -164,6 +178,7 @@ function formatDuration(seconds: number): string {
 }
 
 export default function NewEntryScreen() {
+  const { t } = useTranslation();
   const { isAuthenticated, isGuest } = useAuth();
   const { isDark } = useTheme();
   const params = useLocalSearchParams<{ quickMood?: string }>();
@@ -220,6 +235,9 @@ export default function NewEntryScreen() {
   const soundRef = useRef<Audio.Sound | null>(null);
   const durationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const meteringTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // HealthKit insight toast
+  const [healthInsight, setHealthInsight] = useState<string | null>(null);
 
   // Restore draft on mount
   useEffect(() => {
@@ -373,10 +391,10 @@ export default function NewEntryScreen() {
   // --- Photo Picker ---
   const handlePhotoPress = () => {
     hapticLight();
-    Alert.alert('Add Photo', 'Choose a source', [
-      { text: 'Camera', onPress: () => pickPhoto('camera') },
-      { text: 'Gallery', onPress: () => pickPhoto('gallery') },
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('entry.addPhoto'), t('entry.addPhoto'), [
+      { text: t('entry.camera'), onPress: () => pickPhoto('camera') },
+      { text: t('entry.gallery'), onPress: () => pickPhoto('gallery') },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
@@ -387,7 +405,7 @@ export default function NewEntryScreen() {
       if (source === 'camera') {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permission Required', 'Camera access is needed to take photos.');
+          Alert.alert(t('entry.permissionRequired'), t('entry.cameraPermission'));
           return;
         }
         result = await ImagePicker.launchCameraAsync({
@@ -399,7 +417,7 @@ export default function NewEntryScreen() {
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permission Required', 'Photo library access is needed to pick photos.');
+          Alert.alert(t('entry.permissionRequired'), t('entry.galleryPermission'));
           return;
         }
         result = await ImagePicker.launchImageLibraryAsync({
@@ -418,7 +436,7 @@ export default function NewEntryScreen() {
     } catch (err) {
       Sentry.captureException(err);
       hapticError();
-      Alert.alert('Error', 'Failed to pick photo. Please try again.');
+      Alert.alert(t('common.error'), t('entry.errorPickPhoto'));
     }
   };
 
@@ -471,7 +489,7 @@ export default function NewEntryScreen() {
     try {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Microphone access is needed to record voice notes.');
+        Alert.alert(t('entry.permissionRequired'), t('entry.micPermission'));
         return;
       }
 
@@ -516,7 +534,7 @@ export default function NewEntryScreen() {
     } catch (err) {
       Sentry.captureException(err);
       hapticError();
-      Alert.alert('Error', 'Could not start recording. Please try again.');
+      Alert.alert(t('common.error'), t('entry.errorRecording'));
     }
   };
 
@@ -593,7 +611,7 @@ export default function NewEntryScreen() {
     } catch (err) {
       Sentry.captureException(err);
       hapticError();
-      Alert.alert('Error', 'Could not play audio.');
+      Alert.alert(t('common.error'), t('entry.errorAudioPlay'));
     }
   };
 
@@ -625,12 +643,12 @@ export default function NewEntryScreen() {
         });
       } else {
         hapticError();
-        Alert.alert('No Transcript', 'Could not transcribe audio. Please try again.');
+        Alert.alert(t('entry.noTranscript'), t('entry.noTranscriptBody'));
       }
     } catch (err) {
       Sentry.captureException(err);
       hapticError();
-      Alert.alert('Transcription Failed', 'Could not transcribe audio. Please try again.');
+      Alert.alert(t('entry.transcriptionFailed'), t('entry.transcriptionFailedBody'));
     } finally {
       setIsTranscribing(false);
     }
@@ -654,14 +672,14 @@ export default function NewEntryScreen() {
   const handleSave = async () => {
     if (!selectedMood) {
       hapticError();
-      Alert.alert('Select a Mood', 'Please select how you are feeling.');
+      Alert.alert(t('entry.selectMood'), t('entry.selectMoodBody'));
       return;
     }
 
     // Enforce 60-char hard cap for one-line mode on submit, not just via maxLength UI prop.
     if (quickMode === 'oneline' && content.length > 60) {
       hapticError();
-      Alert.alert('Too Long', 'One-line entries must be 60 characters or fewer.');
+      Alert.alert(t('entry.tooLong'), t('entry.oneLineLimit'));
       return;
     }
 
@@ -704,12 +722,12 @@ export default function NewEntryScreen() {
         if (!canUse) {
           hapticError();
           Alert.alert(
-            'Guest Limit Reached',
-            'You have used all 3 free entries. Create a free account to continue journaling!',
+            t('entry.guestLimitTitle'),
+            t('entry.guestLimitBody'),
             [
-              { text: 'Later', style: 'cancel' },
+              { text: t('entry.later'), style: 'cancel' },
               {
-                text: 'Sign Up',
+                text: t('common.signUp'),
                 onPress: () => router.push('/(auth)/register'),
               },
             ]
@@ -735,18 +753,115 @@ export default function NewEntryScreen() {
       AsyncStorage.removeItem(DRAFT_KEY).catch(() => {});
       hapticSuccess();
       trackEntrySaved().catch(() => {});
+
+      // Show HealthKit insight if available (iOS real device only)
+      const insight = await getHealthInsight(moodScore);
+      if (insight) {
+        setHealthInsight(insight);
+        // Auto-dismiss after 4 seconds, then navigate
+        await new Promise<void>((res) => setTimeout(res, 4000));
+      }
+
       router.back();
     } catch (err: any) {
       Sentry.captureException(err);
       hapticError();
       const message =
         err?.response?.data?.message ||
-        'Failed to save entry. Please try again.';
-      Alert.alert('Error', message);
+        t('entry.saveFailed');
+      Alert.alert(t('common.error'), message);
     } finally {
       setSaving(false);
     }
   };
+
+  // ─── HealthKit insight ─────────────────────────────────────────────────────
+
+  /**
+   * Reads last night's sleep and today's step count from HealthKit.
+   * Returns a human-readable insight string if relevant, or null.
+   * Only runs on iOS in a real build (not Expo Go).
+   */
+  const getHealthInsight = useCallback(
+    (currentMoodScore: number): Promise<string | null> => {
+      return new Promise((resolve) => {
+        if (!AppleHealthKit || Platform.OS !== 'ios') {
+          resolve(null);
+          return;
+        }
+        try {
+          const permissions = {
+            permissions: {
+              read: [
+                'SleepAnalysis' as const,
+                'StepCount' as const,
+              ],
+              write: [],
+            },
+          };
+          AppleHealthKit.initHealthKit(permissions, (initErr: Error) => {
+            if (initErr) {
+              resolve(null);
+              return;
+            }
+
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            yesterday.setHours(20, 0, 0, 0);
+            const now = new Date();
+
+            const sleepOpts = {
+              startDate: yesterday.toISOString(),
+              endDate: now.toISOString(),
+            };
+
+            AppleHealthKit.getSleepSamples(sleepOpts, (sleepErr: Error, sleepResults: any[]) => {
+              if (sleepErr || !sleepResults || sleepResults.length === 0) {
+                resolve(null);
+                return;
+              }
+
+              // Sum total asleep duration in hours
+              let totalSleepMs = 0;
+              for (const sample of sleepResults) {
+                if (sample.value === 'ASLEEP' || sample.value === 'INBED') {
+                  const start = new Date(sample.startDate).getTime();
+                  const end = new Date(sample.endDate).getTime();
+                  if (end > start) totalSleepMs += end - start;
+                }
+              }
+              const sleepHours = +(totalSleepMs / (1000 * 60 * 60)).toFixed(1);
+
+              // Determine insight based on sleep and mood
+              const isNegativeMood = currentMoodScore <= 40;
+              const isPositiveMood = currentMoodScore >= 70;
+
+              if (sleepHours < 6 && isNegativeMood) {
+                resolve(
+                  t('healthKit.sleepLowMood', {
+                    hours: sleepHours,
+                    defaultValue: `You slept only ${sleepHours}h — low sleep often affects mood`,
+                  })
+                );
+              } else if (sleepHours > 8 && isPositiveMood) {
+                resolve(
+                  t('healthKit.sleepHighMood', {
+                    hours: sleepHours,
+                    defaultValue: `Great sleep (${sleepHours}h) likely boosted your mood today`,
+                  })
+                );
+              } else {
+                resolve(null);
+              }
+            });
+          });
+        } catch {
+          resolve(null);
+        }
+      });
+    },
+    [t]
+  );
 
   const getMoodScoreLabel = (score: number): string => {
     if (score >= 80) return 'Great';
@@ -766,6 +881,19 @@ export default function NewEntryScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      {/* HealthKit insight toast */}
+      {healthInsight !== null && (
+        <Pressable
+          className="absolute top-16 left-4 right-4 z-50 bg-blue-600 rounded-2xl px-4 py-3 flex-row items-center"
+          style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 8, elevation: 8 }}
+          onPress={() => setHealthInsight(null)}
+        >
+          <Text className="text-xl mr-3">{'🌙'}</Text>
+          <Text className="text-sm text-white font-medium flex-1">{healthInsight}</Text>
+          <Ionicons name="close" size={16} color="#FFFFFF" />
+        </Pressable>
+      )}
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -780,10 +908,10 @@ export default function NewEntryScreen() {
             className="flex-row items-center"
           >
             <Ionicons name="chevron-back" size={24} color={isDark ? '#94A3B8' : '#374151'} />
-            <Text className="text-base text-text-secondary ml-1">Back</Text>
+            <Text className="text-base text-text-secondary ml-1">{t('common.back')}</Text>
           </Pressable>
           <Text className="text-lg font-semibold text-text-primary">
-            New Entry
+            {t('entry.newEntry')}
           </Text>
           <View className="w-16" />
         </View>
@@ -799,7 +927,7 @@ export default function NewEntryScreen() {
             <View className="bg-blue-50 dark:bg-blue-900/30 rounded-xl px-4 py-2.5 mt-3 flex-row items-center border border-blue-100 dark:border-blue-800">
               <Ionicons name="document-outline" size={16} color="#2563EB" />
               <Text className="text-xs text-blue-700 dark:text-blue-300 ml-2 font-medium">
-                Draft restored
+                {t('entry.draftRestored')}
               </Text>
             </View>
           )}
@@ -844,12 +972,12 @@ export default function NewEntryScreen() {
             {/* Mode hints */}
             {quickMode === 'voice' && !isRecording && !audioUri && (
               <Text className="text-xs text-red-500 dark:text-red-400 mt-2 px-1">
-                {'\u{1F399}\u{FE0F}'} Auto-starts recording — use mic button below
+                {'\u{1F399}\u{FE0F}'} {t('entry.voiceAutoStarts')}
               </Text>
             )}
             {quickMode === 'bullet' && (
               <Text className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 px-1">
-                {'\u{1F4CB}'} Add bullet points for your day
+                {'\u{1F4CB}'} {t('entry.addBulletPoints')}
               </Text>
             )}
           </View>
@@ -857,7 +985,7 @@ export default function NewEntryScreen() {
           {/* Mood Selector */}
           <View className="mt-5">
             <Text className="text-base font-semibold text-text-primary mb-3">
-              How are you feeling?
+              {t('entry.howAreYou')}
             </Text>
             <View className="flex-row flex-wrap" style={{ gap: 10 }}>
               {MOOD_OPTIONS.map((mood) => {
@@ -902,7 +1030,7 @@ export default function NewEntryScreen() {
           <View className="mt-6">
             <View className="flex-row items-center justify-between mb-3">
               <Text className="text-base font-semibold text-text-primary">
-                Rate your mood
+                {t('entry.rateYourDay')}
               </Text>
               <View
                 className="rounded-full px-3 py-1"
@@ -977,7 +1105,7 @@ export default function NewEntryScreen() {
               <View style={{ gap: 10 }}>
                 <View className="bg-input-bg rounded-xl px-4 py-3">
                   <Text className="text-xs text-amber-600 dark:text-amber-400 font-semibold mb-1.5">
-                    {'\u{1F64F}'} Today I'm grateful for...
+                    {'\u{1F64F}'} {t('entry.gratefulFor')}
                   </Text>
                   <TextInput
                     className="text-base text-text-primary"
@@ -990,7 +1118,7 @@ export default function NewEntryScreen() {
                 </View>
                 <View className="bg-input-bg rounded-xl px-4 py-3">
                   <Text className="text-xs text-amber-600 dark:text-amber-400 font-semibold mb-1.5">
-                    {'\u{2B50}'} A small win today was...
+                    {'\u{2B50}'} {t('entry.smallWin')}
                   </Text>
                   <TextInput
                     className="text-base text-text-primary"
@@ -1003,7 +1131,7 @@ export default function NewEntryScreen() {
                 </View>
                 <View className="bg-input-bg rounded-xl px-4 py-3">
                   <Text className="text-xs text-amber-600 dark:text-amber-400 font-semibold mb-1.5">
-                    {'\u{1F604}'} Something that made me smile...
+                    {'\u{1F604}'} {t('entry.madeMeSmile')}
                   </Text>
                   <TextInput
                     className="text-base text-text-primary"
@@ -1050,7 +1178,7 @@ export default function NewEntryScreen() {
                 >
                   <Ionicons name="add-circle-outline" size={20} color="#10B981" />
                   <Text className="text-sm font-medium text-emerald-600 dark:text-emerald-400 ml-1.5">
-                    Add another point
+                    {t('entry.addBulletPoints')}
                   </Text>
                 </Pressable>
               </View>
@@ -1062,7 +1190,7 @@ export default function NewEntryScreen() {
                 <TextInput
                   ref={contentInputRef}
                   className="bg-input-bg rounded-xl p-4 text-lg text-text-primary"
-                  placeholder="Capture in one sentence..."
+                  placeholder={t('entry.quickPlaceholder')}
                   placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
                   value={content}
                   onChangeText={(text) => setContent(text.length <= 60 ? text : text.substring(0, 60))}
@@ -1084,7 +1212,7 @@ export default function NewEntryScreen() {
                   <View className="bg-input-bg rounded-xl p-6 items-center">
                     <Text className="text-3xl mb-3">{'\u{1F399}\u{FE0F}'}</Text>
                     <Text className="text-sm font-semibold text-text-primary text-center">
-                      Starting voice recording...
+                      {t('entry.voiceStarting')}
                     </Text>
                     <Text className="text-xs text-text-muted text-center mt-1">
                       Tap the mic below to begin
@@ -1415,7 +1543,7 @@ export default function NewEntryScreen() {
                     !selectedMood ? 'text-text-muted' : 'text-white'
                   }`}
                 >
-                  Save Entry
+                  {t('entry.saveEntry')}
                 </Text>
               </>
             )}
@@ -1444,7 +1572,7 @@ export default function NewEntryScreen() {
               transition={200}
             />
             <Text className="text-white text-sm mt-4 opacity-60">
-              Tap anywhere to close
+              {t('entry.tapToClose')}
             </Text>
           </Pressable>
         </Modal>

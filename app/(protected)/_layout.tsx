@@ -12,6 +12,8 @@ import { SubscriptionProvider } from '../../contexts/SubscriptionContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { hapticSelection } from '../../lib/haptics';
 import { authenticateWithBiometrics } from '../../lib/biometrics';
+import { scheduleSmartReminder } from '../../lib/smartReminders';
+import api from '../../lib/api';
 
 // In Expo Go (dev), biometric prompts may not function correctly.
 // Skip the lock screen in dev to avoid blocking the developer workflow.
@@ -89,6 +91,24 @@ export default function ProtectedLayout() {
       }
     }).catch(() => {});
   }, []);
+
+  // Schedule smart reminder after biometric unlock for authenticated users
+  useEffect(() => {
+    if (!isUnlocked || !isAuthenticated || isLoading) return;
+    (async () => {
+      try {
+        const [entriesRes, streakRes] = await Promise.all([
+          api.get('/journals?offset=0&limit=30').catch(() => ({ data: { entries: [] } })),
+          api.get('/journals/streak').catch(() => ({ data: null })),
+        ]);
+        const entries: Array<{ created_at: string }> = entriesRes.data?.entries ?? [];
+        const currentStreak: number = streakRes.data?.current_streak ?? 0;
+        await scheduleSmartReminder(entries, currentStreak);
+      } catch {
+        // Non-critical — silently ignore
+      }
+    })();
+  }, [isUnlocked, isAuthenticated, isLoading]);
 
   // Navigate to pending deep link after auth + biometric resolve
   useEffect(() => {

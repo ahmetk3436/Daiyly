@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import * as Sentry from '@sentry/react-native';
 import {
   View,
@@ -7,6 +7,9 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  Dimensions,
+  ScrollView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +24,11 @@ import { hapticLight, hapticSelection } from '../../lib/haptics';
 import { cacheSet, cacheGet } from '../../lib/cache';
 import { MOOD_OPTIONS } from '../../types/journal';
 import type { JournalEntry, GuestEntry } from '../../types/journal';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const PHOTO_GRID_ITEM_SIZE = (SCREEN_WIDTH - 40 - 8) / 2; // 2 columns, 20px side padding, 8px gap
+
+type HistoryViewMode = 'all' | 'photos';
 
 const PAGE_SIZE = 20;
 
@@ -107,6 +115,8 @@ export default function HistoryScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isStale, setIsStale] = useState(false);
   const [moodFilter, setMoodFilter] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<HistoryViewMode>('all');
+  const [photoViewerEntry, setPhotoViewerEntry] = useState<DisplayEntry | null>(null);
 
   const fetchEntries = async (resetOffset: boolean = false) => {
     try {
@@ -238,6 +248,12 @@ export default function HistoryScreen() {
   );
 
   const displayEntries = filteredEntries ?? entries;
+
+  // Entries with photos for the gallery tab
+  const photoEntries = useMemo(
+    () => entries.filter((e) => e.photo_url),
+    [entries]
+  );
 
   const renderEntryCard = ({ item }: { item: DisplayEntry }) => (
     <Pressable
@@ -452,19 +468,116 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
+      {/* Photo Viewer Modal */}
+      <Modal
+        visible={photoViewerEntry !== null}
+        animationType="fade"
+        transparent={false}
+        onRequestClose={() => setPhotoViewerEntry(null)}
+      >
+        <SafeAreaView className="flex-1 bg-black" edges={['top', 'bottom']}>
+          {/* Close button */}
+          <Pressable
+            className="absolute top-14 right-5 z-10 w-10 h-10 rounded-full bg-black/60 items-center justify-center"
+            onPress={() => setPhotoViewerEntry(null)}
+          >
+            <Ionicons name="close" size={22} color="#FFFFFF" />
+          </Pressable>
+
+          {photoViewerEntry && (
+            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+              {/* Full-screen photo */}
+              <Image
+                source={{ uri: photoViewerEntry.photo_url! }}
+                style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH }}
+                contentFit="cover"
+                transition={300}
+              />
+
+              {/* Entry content below photo */}
+              <View className="p-5">
+                <View className="flex-row items-center mb-3">
+                  <Text className="text-2xl mr-2">{photoViewerEntry.mood_emoji}</Text>
+                  <View className="flex-1">
+                    <Text className="text-sm text-slate-400">
+                      {formatDate(photoViewerEntry.entry_date || photoViewerEntry.created_at)}
+                    </Text>
+                  </View>
+                  <View
+                    className="rounded-full px-2.5 py-1"
+                    style={{ backgroundColor: `${getMoodColor(photoViewerEntry.mood_score)}20` }}
+                  >
+                    <Text
+                      className="text-sm font-bold"
+                      style={{ color: getMoodColor(photoViewerEntry.mood_score) }}
+                    >
+                      {photoViewerEntry.mood_score}
+                    </Text>
+                  </View>
+                </View>
+                {photoViewerEntry.content ? (
+                  <Text className="text-base text-slate-200 leading-relaxed">
+                    {photoViewerEntry.content}
+                  </Text>
+                ) : null}
+                <Pressable
+                  className="mt-4 bg-blue-600 rounded-xl py-3 items-center"
+                  onPress={() => {
+                    setPhotoViewerEntry(null);
+                    hapticLight();
+                    router.push(`/(protected)/entry/${photoViewerEntry.id}`);
+                  }}
+                >
+                  <Text className="text-white font-semibold text-sm">
+                    {t('history.openEntry')}
+                  </Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
+
       {/* Header */}
       <View className="px-5 pt-6 pb-3 bg-background border-b border-border">
-        <View className="flex-row items-center">
-          <Text className="text-2xl font-bold text-text-primary">{t('history.title')}</Text>
-          <View className="bg-blue-50 dark:bg-blue-900/30 rounded-full px-2.5 py-0.5 ml-3 border border-blue-100 dark:border-blue-800">
-            <Text className="text-xs font-bold text-blue-600 dark:text-blue-400">
-              {moodFilter ? displayEntries.length : total}
-            </Text>
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <Text className="text-2xl font-bold text-text-primary">{t('history.title')}</Text>
+            <View className="bg-blue-50 dark:bg-blue-900/30 rounded-full px-2.5 py-0.5 ml-3 border border-blue-100 dark:border-blue-800">
+              <Text className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                {moodFilter ? displayEntries.length : total}
+              </Text>
+            </View>
+          </View>
+
+          {/* View mode toggle: All | Photos */}
+          <View className="flex-row bg-surface-muted rounded-lg p-0.5" style={{ gap: 2 }}>
+            <Pressable
+              onPress={() => { hapticSelection(); setViewMode('all'); }}
+              className={`px-3 py-1 rounded-md ${viewMode === 'all' ? 'bg-background' : ''}`}
+            >
+              <Text className={`text-xs font-semibold ${viewMode === 'all' ? 'text-text-primary' : 'text-text-muted'}`}>
+                {t('history.tabAll')}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => { hapticSelection(); setViewMode('photos'); }}
+              className={`flex-row items-center px-3 py-1 rounded-md ${viewMode === 'photos' ? 'bg-background' : ''}`}
+            >
+              <Ionicons
+                name="images-outline"
+                size={11}
+                color={viewMode === 'photos' ? (isDark ? '#E2E8F0' : '#374151') : (isDark ? '#64748B' : '#9CA3AF')}
+              />
+              <Text className={`text-xs font-semibold ml-1 ${viewMode === 'photos' ? 'text-text-primary' : 'text-text-muted'}`}>
+                {t('history.tabPhotos')}
+              </Text>
+            </Pressable>
           </View>
         </View>
 
-        {/* Mood Filter Chips */}
-        {uniqueMoods.length > 1 && (
+        {/* Mood Filter Chips — only in "All" mode */}
+        {viewMode === 'all' && uniqueMoods.length > 1 && (
           <View className="flex-row mt-3" style={{ gap: 6 }}>
             {uniqueMoods.slice(0, 8).map((emoji) => {
               const isActive = moodFilter === emoji;
@@ -541,7 +654,69 @@ export default function HistoryScreen() {
         <View className="flex-1 pt-4">{renderLoadingSkeleton()}</View>
       ) : error ? (
         renderErrorState()
+      ) : viewMode === 'photos' ? (
+        // ── Photo Gallery Grid ───────────────────────────────────────────────
+        photoEntries.length === 0 ? (
+          <View className="flex-1 items-center justify-center px-10 py-20">
+            <Ionicons name="images-outline" size={48} color={isDark ? '#475569' : '#D1D5DB'} />
+            <Text className="text-lg font-semibold text-text-primary mt-4 mb-2">
+              {t('history.noPhotos')}
+            </Text>
+            <Text className="text-sm text-text-secondary text-center">
+              {t('history.noPhotosSubtitle')}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={photoEntries}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            contentContainerStyle={{ padding: 20, gap: 8 }}
+            columnWrapperStyle={{ gap: 8 }}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <Pressable
+                className="rounded-xl overflow-hidden active:opacity-80"
+                style={{ width: PHOTO_GRID_ITEM_SIZE, height: PHOTO_GRID_ITEM_SIZE }}
+                onPress={() => {
+                  hapticLight();
+                  setPhotoViewerEntry(item);
+                }}
+              >
+                <Image
+                  source={{ uri: item.photo_url! }}
+                  style={{ width: PHOTO_GRID_ITEM_SIZE, height: PHOTO_GRID_ITEM_SIZE }}
+                  contentFit="cover"
+                  transition={200}
+                />
+                {/* Overlay with mood emoji + date */}
+                <View
+                  className="absolute bottom-0 left-0 right-0 px-2 py-1.5"
+                  style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+                >
+                  <View className="flex-row items-center justify-between">
+                    <Text style={{ fontSize: 16 }}>{item.mood_emoji}</Text>
+                    <Text className="text-xs text-white font-medium">
+                      {new Date(item.created_at).toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric',
+                      })}
+                    </Text>
+                  </View>
+                </View>
+              </Pressable>
+            )}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor="#2563EB"
+                colors={['#2563EB']}
+              />
+            }
+          />
+        )
       ) : (
+        // ── All Entries List ─────────────────────────────────────────────────
         <FlatList
           data={displayEntries}
           keyExtractor={(item) => item.id}

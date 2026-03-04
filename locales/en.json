@@ -154,7 +154,14 @@
     "intentBannerStress": "Start with a short entry — even one sentence helps.",
     "intentBannerHabits": "Set a daily reminder to build your journaling habit.",
     "intentBannerEmotions": "Try the Quick mood check-in below to get started.",
-    "intentBannerDefault": "Welcome! Tap \"New Entry\" to write your first journal."
+    "intentBannerDefault": "Welcome! Tap \"New Entry\" to write your first journal.",
+    "weekInReviewTitle": "This Week's Summary",
+    "weekSoFarTitle": "Week So Far",
+    "weekInReviewSubtitle": "{{count}} entries this week",
+    "weekInReviewAvgMood": "Avg Mood",
+    "weekInReviewEntries": "Entries",
+    "weekInReviewBestDay": "Best Day",
+    "weekInReviewWorstDay": "Lowest Day"
   },
   "entry": {
     "newEntry": "New Entry",
@@ -285,7 +292,12 @@
     "somethingWentWrong": "Something went wrong",
     "failedLoad": "Failed to load your journal entries. Please check your connection and try again.",
     "signUpToSync": "Sign up to sync entries to cloud",
-    "showingCachedData": "Showing cached data — pull to refresh"
+    "showingCachedData": "Showing cached data — pull to refresh",
+    "tabAll": "All",
+    "tabPhotos": "Photos",
+    "noPhotos": "No photos yet",
+    "noPhotosSubtitle": "Add photos to your journal entries to see them here",
+    "openEntry": "Open Entry"
   },
   "search": {
     "title": "Search",
@@ -339,7 +351,13 @@
     "noCachedResults": "No cached results found. Connect to search all entries.",
     "failedSearch": "Failed to search entries. Please check your connection and try again.",
     "couldNotAnswer": "Could not get an answer. Please try again.",
-    "loadingEntries": "Loading your entries..."
+    "loadingEntries": "Loading your entries...",
+    "filterThisWeek": "This week",
+    "filterLastMonth": "Last month",
+    "filterPositive": "Positive",
+    "filterNegative": "Negative",
+    "filterWithPhotos": "With photos",
+    "filterVoice": "Voice entries"
   },
   "settings": {
     "title": "Settings",
@@ -483,6 +501,12 @@
     "tabStreak": "Streak",
     "shareFailed": "Share Failed",
     "shareFailedBody": "Could not share your card. Please try again.",
+    "moodFeelingLow": "Feeling Low",
+    "moodABitDown": "A Bit Down",
+    "moodNeutral": "Neutral",
+    "moodFeelingGood": "Feeling Good",
+    "moodAmazing": "Amazing!",
+    "back": "Back",
     "quotes": {
       "happy": ["Sunshine lives inside you", "Today chose happiness", "Joy is a choice, and you chose well"],
       "calm": ["Still waters, deep peace", "Breathe in calm, breathe out chaos", "Inner peace is your superpower"],
@@ -502,6 +526,9 @@
     "startFresh": "Start Fresh"
   },
   "notifications": {
+    "smartReminderTitle": "Time to journal",
+    "smartReminderBody": "You usually write around this time",
+    "streakProtectBody": "Your {{streak}}-day streak needs one entry today",
     "dailyReminder": "Daily Reminder",
     "reminderBody": "How are you feeling today? Take a moment to journal.",
     "title": "Notifications",
@@ -589,6 +616,8 @@
     "correlationGood": "On days with 7+ hours, your entries tend to be more positive.",
     "correlationMid": "Getting more sleep could help improve your journal mood scores.",
     "correlationLow": "Most tracked days had less than 7 hours. Sleep may be affecting your mood.",
-    "averaged": "You averaged {{hours}}h sleep this week."
+    "averaged": "You averaged {{hours}}h sleep this week.",
+    "sleepLowMood": "You slept only {{hours}}h — low sleep often affects mood",
+    "sleepHighMood": "Great sleep ({{hours}}h) likely boosted your mood today"
   }
 }

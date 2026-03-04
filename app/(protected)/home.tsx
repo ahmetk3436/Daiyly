@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,76 @@ import { maybeRequestReview } from '../../lib/review';
 import { cacheSet, cacheGet } from '../../lib/cache';
 import { MOOD_OPTIONS } from '../../types/journal';
 import type { JournalEntry, GuestEntry, JournalStreak } from '../../types/journal';
+
+// ─── Week In Review helpers ───────────────────────────────────────────────────
+
+interface WeekStats {
+  avgMood: number;
+  dominantEmoji: string;
+  entryCount: number;
+  bestDay: string;
+  worstDay: string;
+  isSunday: boolean;
+}
+
+function getWeekBounds(): { start: Date; end: Date } {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon ...
+  // Treat Monday as start of week
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const start = new Date(now);
+  start.setDate(now.getDate() - daysFromMonday);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+function modeOf<T>(arr: T[]): T | null {
+  if (arr.length === 0) return null;
+  const freq = new Map<string, number>();
+  for (const item of arr) {
+    const key = String(item);
+    freq.set(key, (freq.get(key) ?? 0) + 1);
+  }
+  let bestKey = String(arr[0]);
+  let bestCount = 0;
+  for (const [k, c] of freq.entries()) {
+    if (c > bestCount) { bestCount = c; bestKey = k; }
+  }
+  return arr.find((x) => String(x) === bestKey) ?? arr[0];
+}
+
+function computeWeekStats(entries: DisplayEntry[]): WeekStats | null {
+  const { start, end } = getWeekBounds();
+  const weekEntries = entries.filter((e) => {
+    const d = new Date(e.created_at);
+    return d >= start && d <= end;
+  });
+  if (weekEntries.length < 3) return null;
+
+  const avgMood = Math.round(
+    weekEntries.reduce((sum, e) => sum + e.mood_score, 0) / weekEntries.length
+  );
+  const dominantEmoji = modeOf(weekEntries.map((e) => e.mood_emoji)) ?? '';
+
+  // Best / worst day
+  const sorted = [...weekEntries].sort((a, b) => b.mood_score - a.mood_score);
+  const bestDay = new Date(sorted[0].created_at).toLocaleDateString('en-US', { weekday: 'short' });
+  const worstDay = new Date(sorted[sorted.length - 1].created_at).toLocaleDateString('en-US', { weekday: 'short' });
+
+  const isSunday = new Date().getDay() === 0;
+
+  return { avgMood, dominantEmoji, entryCount: weekEntries.length, bestDay, worstDay, isSunday };
+}
+
+function getMoodColor(score: number): string {
+  if (score >= 80) return '#22C55E';
+  if (score >= 60) return '#3B82F6';
+  if (score >= 40) return '#F59E0B';
+  if (score >= 20) return '#F97316';
+  return '#EF4444';
+}
 
 const FIRST_VISIT_KEY = '@daiyly_first_visit';
 const INTENT_ANSWERS_KEY = '@daiyly_onboarding_intent';
@@ -76,14 +146,6 @@ function timeAgoKey(dateString: string): { key: string; options?: Record<string,
   if (diffDays === 1) return 'home.yesterday';
   if (diffDays < 7) return { key: 'home.daysAgo', options: { count: diffDays } };
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function getMoodColor(score: number): string {
-  if (score >= 80) return '#22C55E';
-  if (score >= 60) return '#3B82F6';
-  if (score >= 40) return '#F59E0B';
-  if (score >= 20) return '#F97316';
-  return '#EF4444';
 }
 
 const EMOTION_CHIP_COLORS: Record<string, { bg: string; text: string }> = {
@@ -152,6 +214,9 @@ export default function HomeScreen() {
   const celebrationOpacity = useRef(new Animated.Value(0)).current;
 
   const userName = user?.email?.split('@')[0] || 'there';
+
+  // Compute week-in-review stats from recent entries
+  const weekStats = useMemo(() => computeWeekStats(recentEntries), [recentEntries]);
 
   // Load intent-based welcome banner on first visit
   useEffect(() => {
@@ -605,6 +670,77 @@ export default function HomeScreen() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={isDark ? '#C084FC' : '#7C3AED'} />
           </Pressable>
+        )}
+
+        {/* Week In Review Card */}
+        {weekStats !== null && (
+          <View className="mx-6 mt-5 rounded-2xl overflow-hidden"
+            style={{
+              backgroundColor: isDark ? '#1E3A5F' : '#1E40AF',
+              shadowColor: '#1E40AF',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 12,
+              elevation: 6,
+            }}
+          >
+            {/* Card header */}
+            <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
+              <View>
+                <Text className="text-xs font-semibold text-blue-200 uppercase tracking-wider">
+                  {weekStats.isSunday
+                    ? t('home.weekInReviewTitle')
+                    : t('home.weekSoFarTitle')}
+                </Text>
+                <Text className="text-base font-bold text-white mt-0.5">
+                  {weekStats.dominantEmoji} {t('home.weekInReviewSubtitle', { count: weekStats.entryCount })}
+                </Text>
+              </View>
+              <View
+                className="rounded-full px-2.5 py-1"
+                style={{ backgroundColor: `${getMoodColor(weekStats.avgMood)}30` }}
+              >
+                <Text
+                  className="text-sm font-bold"
+                  style={{ color: getMoodColor(weekStats.avgMood) }}
+                >
+                  {weekStats.avgMood}
+                </Text>
+              </View>
+            </View>
+
+            {/* 2x2 Stats Grid */}
+            <View className="flex-row flex-wrap px-4 pb-4 mt-1" style={{ gap: 8 }}>
+              <View className="flex-1 rounded-xl px-3 py-2.5"
+                style={{ backgroundColor: 'rgba(255,255,255,0.1)', minWidth: '45%' }}>
+                <Text className="text-[10px] text-blue-200 uppercase tracking-wide font-medium">
+                  {t('home.weekInReviewAvgMood')}
+                </Text>
+                <Text className="text-lg font-bold text-white mt-0.5">{weekStats.avgMood}/100</Text>
+              </View>
+              <View className="flex-1 rounded-xl px-3 py-2.5"
+                style={{ backgroundColor: 'rgba(255,255,255,0.1)', minWidth: '45%' }}>
+                <Text className="text-[10px] text-blue-200 uppercase tracking-wide font-medium">
+                  {t('home.weekInReviewEntries')}
+                </Text>
+                <Text className="text-lg font-bold text-white mt-0.5">{weekStats.entryCount}</Text>
+              </View>
+              <View className="flex-1 rounded-xl px-3 py-2.5"
+                style={{ backgroundColor: 'rgba(255,255,255,0.1)', minWidth: '45%' }}>
+                <Text className="text-[10px] text-blue-200 uppercase tracking-wide font-medium">
+                  {t('home.weekInReviewBestDay')}
+                </Text>
+                <Text className="text-lg font-bold text-white mt-0.5">{weekStats.bestDay}</Text>
+              </View>
+              <View className="flex-1 rounded-xl px-3 py-2.5"
+                style={{ backgroundColor: 'rgba(255,255,255,0.1)', minWidth: '45%' }}>
+                <Text className="text-[10px] text-blue-200 uppercase tracking-wide font-medium">
+                  {t('home.weekInReviewWorstDay')}
+                </Text>
+                <Text className="text-lg font-bold text-white mt-0.5">{weekStats.worstDay}</Text>
+              </View>
+            </View>
+          </View>
         )}
 
         {/* Recent Entries */}

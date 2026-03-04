@@ -46,6 +46,55 @@ const ASK_PROMPT_CHIPS = [
   'When do I feel most energized?',
 ];
 
+// Quick filter pill IDs
+type QuickFilter = 'thisWeek' | 'lastMonth' | 'positive' | 'negative' | 'withPhotos' | 'voiceEntries';
+
+interface QuickFilterPill {
+  id: QuickFilter;
+  labelKey: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+}
+
+const QUICK_FILTER_PILLS: QuickFilterPill[] = [
+  { id: 'thisWeek', labelKey: 'search.filterThisWeek', icon: 'calendar-outline' },
+  { id: 'lastMonth', labelKey: 'search.filterLastMonth', icon: 'calendar' },
+  { id: 'positive', labelKey: 'search.filterPositive', icon: 'happy-outline' },
+  { id: 'negative', labelKey: 'search.filterNegative', icon: 'sad-outline' },
+  { id: 'withPhotos', labelKey: 'search.filterWithPhotos', icon: 'image-outline' },
+  { id: 'voiceEntries', labelKey: 'search.filterVoice', icon: 'mic-outline' },
+];
+
+function applyQuickFilter(entries: JournalEntry[], filter: QuickFilter): JournalEntry[] {
+  const now = new Date();
+  switch (filter) {
+    case 'thisWeek': {
+      const dayOfWeek = now.getDay();
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - daysFromMonday);
+      weekStart.setHours(0, 0, 0, 0);
+      return entries.filter((e) => new Date(e.created_at) >= weekStart);
+    }
+    case 'lastMonth': {
+      const monthAgo = new Date(now);
+      monthAgo.setMonth(now.getMonth() - 1);
+      return entries.filter((e) => new Date(e.created_at) >= monthAgo);
+    }
+    case 'positive':
+      return entries.filter((e) => e.mood_score >= 70);
+    case 'negative':
+      return entries.filter((e) => e.mood_score <= 40);
+    case 'withPhotos':
+      return entries.filter((e) => e.photo_url !== null && e.photo_url !== '');
+    case 'voiceEntries':
+      return entries.filter(
+        (e) => (e.audio_url !== null && e.audio_url !== '') || (e.transcript !== null && e.transcript !== '')
+      );
+    default:
+      return entries;
+  }
+}
+
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
 function getMoodColor(score: number): string {
@@ -80,6 +129,10 @@ export default function SearchScreen() {
   const [askResult, setAskResult] = useState<AskResult | null>(null);
   const [askLoading, setAskLoading] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
+
+  // ── Quick filter state ──
+  const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilter | null>(null);
+  const [allLoadedEntries, setAllLoadedEntries] = useState<JournalEntry[]>([]);
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const offlineCacheRef = useRef<{ id: string; content: string; mood_emoji: string; mood_score: number; created_at: string; card_color: string }[]>([]);
@@ -141,11 +194,13 @@ export default function SearchScreen() {
     // Clear keyword state
     setQuery('');
     setResults([]);
+    setAllLoadedEntries([]);
     setTotal(0);
     setOffset(0);
     setHasMore(true);
     setError(null);
     setIsOfflineResults(false);
+    setActiveQuickFilter(null);
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
       searchTimeoutRef.current = null;
@@ -247,9 +302,11 @@ export default function SearchScreen() {
 
       if (isNewSearch) {
         setResults(entries || []);
+        setAllLoadedEntries(entries || []);
         setOffset(10);
       } else {
         setResults((prev) => [...prev, ...(entries || [])]);
+        setAllLoadedEntries((prev) => [...prev, ...(entries || [])]);
         setOffset((prev) => prev + 10);
       }
 
@@ -321,13 +378,28 @@ export default function SearchScreen() {
     }
     setQuery('');
     setResults([]);
+    setAllLoadedEntries([]);
     setTotal(0);
     setOffset(0);
     setHasMore(true);
     setError(null);
     setIsOfflineResults(false);
+    setActiveQuickFilter(null);
     Keyboard.dismiss();
   }, []);
+
+  // Quick filter handler — applies client-side on already-fetched results
+  const handleQuickFilter = useCallback((filter: QuickFilter) => {
+    hapticSelection();
+    if (activeQuickFilter === filter) {
+      setActiveQuickFilter(null);
+      setResults(allLoadedEntries);
+    } else {
+      setActiveQuickFilter(filter);
+      const base = allLoadedEntries.length > 0 ? allLoadedEntries : results;
+      setResults(applyQuickFilter(base, filter));
+    }
+  }, [activeQuickFilter, allLoadedEntries, results]);
 
   const handleEntryPress = useCallback((entryId: string) => {
     hapticSelection();
@@ -565,6 +637,42 @@ export default function SearchScreen() {
                 )}
               </View>
             </View>
+
+            {/* Quick Filter Pills */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="px-5 mt-2"
+              contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+            >
+              {QUICK_FILTER_PILLS.map((pill) => {
+                const isActive = activeQuickFilter === pill.id;
+                return (
+                  <Pressable
+                    key={pill.id}
+                    onPress={() => handleQuickFilter(pill.id)}
+                    className={`flex-row items-center rounded-full px-3 py-1.5 border ${
+                      isActive
+                        ? 'bg-blue-600 border-blue-600'
+                        : 'bg-surface-elevated border-border'
+                    }`}
+                  >
+                    <Ionicons
+                      name={pill.icon}
+                      size={12}
+                      color={isActive ? '#FFFFFF' : (isDark ? '#94A3B8' : '#6B7280')}
+                    />
+                    <Text
+                      className={`text-xs font-medium ml-1 ${
+                        isActive ? 'text-white' : 'text-text-secondary'
+                      }`}
+                    >
+                      {t(pill.labelKey)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
 
             {/* Premium Search Banner */}
             {showSearchUpsell && query.length === 0 && (

@@ -13,6 +13,15 @@ import * as Notifications from 'expo-notifications';
 
 const NOTIFICATION_ID = 'daiyly-smart-reminder';
 const DEFAULT_HOUR = 21; // 9 PM fallback when no entries exist
+const MIN_ENTRIES_FOR_PATTERN = 5;
+const CONFIDENCE_THRESHOLD = 0.4;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface WritingPattern {
+  preferredHour: number;
+  confidence: number;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -79,31 +88,68 @@ function nextOccurrenceOf(hour: number): Date {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
+ * Analyzes entry timestamps to find when the user typically journals.
+ * Returns the preferred hour (0–23) and a confidence score (0–1).
+ *
+ * If fewer than MIN_ENTRIES_FOR_PATTERN entries are provided,
+ * returns the default hour with confidence 0.
+ */
+export function analyzeWritingPattern(
+  entries: Array<{ created_at: string }>
+): WritingPattern {
+  if (entries.length < MIN_ENTRIES_FOR_PATTERN) {
+    return { preferredHour: DEFAULT_HOUR, confidence: 0 };
+  }
+
+  const hours: number[] = [];
+  for (const entry of entries) {
+    const d = new Date(entry.created_at);
+    if (!isNaN(d.getTime())) {
+      hours.push(d.getHours());
+    }
+  }
+
+  if (hours.length === 0) {
+    return { preferredHour: DEFAULT_HOUR, confidence: 0 };
+  }
+
+  const preferredHour = mode(hours);
+
+  // Confidence = fraction of entries that fall within ±1 hour of the mode
+  const nearMode = hours.filter((h) => Math.abs(h - preferredHour) <= 1);
+  const confidence = nearMode.length / hours.length;
+
+  return { preferredHour, confidence };
+}
+
+/**
  * Analyzes entry timestamps to find when the user typically journals,
  * then schedules a daily local notification at that time.
+ *
+ * If the pattern confidence is >= CONFIDENCE_THRESHOLD, the detected
+ * preferred hour is used. Otherwise, falls back to DEFAULT_HOUR (21:00).
+ *
+ * Accepts an optional currentStreak for streak-aware notification copy.
  *
  * Safe to call multiple times — cancels the previous reminder before
  * scheduling a new one.
  */
 export async function scheduleSmartReminder(
-  entries: Array<{ created_at: string }>
+  entries: Array<{ created_at: string }>,
+  currentStreak?: number
 ): Promise<void> {
   try {
     // Request permission — silently abort if denied
     const { status } = await Notifications.requestPermissionsAsync();
     if (status !== 'granted') return;
 
-    // Extract the hour of each past entry
-    const hours: number[] = [];
-    for (const entry of entries) {
-      const d = new Date(entry.created_at);
-      if (!isNaN(d.getTime())) {
-        hours.push(d.getHours());
-      }
-    }
+    const pattern = analyzeWritingPattern(entries);
 
-    // Find most common journaling hour; default to 21:00
-    const targetHour = hours.length > 0 ? mode(hours) : DEFAULT_HOUR;
+    // Use pattern hour when we have enough confidence, otherwise fixed default
+    const targetHour =
+      pattern.confidence >= CONFIDENCE_THRESHOLD
+        ? pattern.preferredHour
+        : DEFAULT_HOUR;
 
     // Skip if the user has journaled in the last 3 days near this hour
     if (hasRecentEntryNearHour(entries, targetHour)) return;
@@ -113,11 +159,22 @@ export async function scheduleSmartReminder(
 
     const triggerDate = nextOccurrenceOf(targetHour);
 
+    // Choose notification body based on streak status
+    let title = 'Time to journal';
+    let body =
+      pattern.confidence >= CONFIDENCE_THRESHOLD
+        ? 'You usually write around this time'
+        : 'Take a moment to reflect on your day.';
+
+    if (currentStreak && currentStreak > 0) {
+      body = `Your ${currentStreak}-day streak needs one entry today`;
+    }
+
     await Notifications.scheduleNotificationAsync({
       identifier: NOTIFICATION_ID,
       content: {
-        title: 'Time to reflect \uD83D\uDCD4',
-        body: 'Your streak is waiting \u2014 take 2 minutes to journal today.',
+        title,
+        body,
         sound: true,
       },
       trigger: {
