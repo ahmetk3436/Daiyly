@@ -340,6 +340,7 @@ export default function NewEntryScreen() {
   };
 
   const addBulletItem = () => {
+    if (bulletItems.length >= 50) return; // backend cap
     hapticLight();
     setBulletItems((prev) => [...prev, '']);
   };
@@ -654,6 +655,13 @@ export default function NewEntryScreen() {
     if (!selectedMood) {
       hapticError();
       Alert.alert('Select a Mood', 'Please select how you are feeling.');
+      return;
+    }
+
+    // Enforce 60-char hard cap for one-line mode on submit, not just via maxLength UI prop.
+    if (quickMode === 'oneline' && content.length > 60) {
+      hapticError();
+      Alert.alert('Too Long', 'One-line entries must be 60 characters or fewer.');
       return;
     }
 
