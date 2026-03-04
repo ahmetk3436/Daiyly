@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import api from '../../lib/api';
@@ -100,12 +101,12 @@ function emojiToMoodKey(emoji: string): string {
   return map[emoji] || 'neutral';
 }
 
-function getMoodLabel(score: number): string {
-  if (score <= 20) return 'Feeling Low';
-  if (score <= 40) return 'A Bit Down';
-  if (score <= 60) return 'Neutral';
-  if (score <= 80) return 'Feeling Good';
-  return 'Amazing!';
+function getMoodLabelKey(score: number): string {
+  if (score <= 20) return 'sharing.moodFeelingLow';
+  if (score <= 40) return 'sharing.moodABitDown';
+  if (score <= 60) return 'sharing.moodNeutral';
+  if (score <= 80) return 'sharing.moodFeelingGood';
+  return 'sharing.moodAmazing';
 }
 
 // ─── Card type definitions ────────────────────────────────────────────
@@ -119,6 +120,7 @@ interface MoodDistItem {
 }
 
 export default function SharingScreen() {
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const { isDark } = useTheme();
   const params = useLocalSearchParams<{
@@ -269,7 +271,7 @@ export default function SharingScreen() {
       Sentry.captureException(error);
       console.error('Share error:', error);
       hapticError();
-      Alert.alert('Share Failed', 'Could not share your card. Please try again.');
+      Alert.alert(t('sharing.shareFailed'), t('sharing.shareFailedBody'));
     } finally {
       setSharing(false);
     }
@@ -282,8 +284,8 @@ export default function SharingScreen() {
       return (
         <View className="items-center justify-center py-20">
           <Text className="text-4xl mb-3">{'\u{1F4DD}'}</Text>
-          <Text className="text-base text-text-secondary">No entry to share</Text>
-          <Text className="text-sm text-text-muted mt-1">Write your first journal entry</Text>
+          <Text className="text-base text-text-secondary">{t('sharing.noEntryToShare')}</Text>
+          <Text className="text-sm text-text-muted mt-1">{t('sharing.writeFirstEntry')}</Text>
         </View>
       );
     }
@@ -380,7 +382,7 @@ export default function SharingScreen() {
                 }}
               >
                 <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
-                  {getMoodLabel(entry.mood_score)} {'\u2022'} {entry.mood_score}/100
+                  {t(getMoodLabelKey(entry.mood_score))} {'\u2022'} {entry.mood_score}/100
                 </Text>
               </View>
 
@@ -436,7 +438,7 @@ export default function SharingScreen() {
                 }}
               >
                 <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>
-                  Track your mood with Daiyly
+                  {t('sharing.trackMoodCTA')}
                 </Text>
               </View>
             </View>
@@ -501,14 +503,14 @@ export default function SharingScreen() {
                 </Text>
               </View>
               <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>
-                Weekly Report
+                {t('sharing.weeklyReport')}
               </Text>
             </View>
 
             {/* Title */}
             <View style={{ alignItems: 'center', marginTop: 8 }}>
               <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '600', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                My Week in Moods
+                {t('sharing.myWeekInMoods')}
               </Text>
               <View
                 style={{
@@ -524,7 +526,9 @@ export default function SharingScreen() {
                 </Text>
               </View>
               <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 6 }}>
-                {totalEntries} {totalEntries === 1 ? 'entry' : 'entries'} this week
+                {totalEntries === 1
+                  ? t('sharing.entriesThisWeek_one', { count: totalEntries })
+                  : t('sharing.entriesThisWeek_other', { count: totalEntries })}
               </Text>
             </View>
 
@@ -575,7 +579,7 @@ export default function SharingScreen() {
               ) : (
                 <View style={{ alignItems: 'center', paddingVertical: 20 }}>
                   <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>
-                    Not enough data yet
+                    {t('sharing.notEnoughDataYet')}
                   </Text>
                 </View>
               )}
@@ -606,7 +610,7 @@ export default function SharingScreen() {
                 }}
               >
                 <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>
-                  Track your mood with Daiyly
+                  {t('sharing.trackMoodCTA')}
                 </Text>
               </View>
             </View>
@@ -683,7 +687,7 @@ export default function SharingScreen() {
                 </Text>
               </View>
               <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>
-                Writing Streak
+                {t('sharing.writingStreak')}
               </Text>
             </View>
 
@@ -708,7 +712,7 @@ export default function SharingScreen() {
                   marginTop: 4,
                 }}
               >
-                Day Streak
+                {t('sharing.dayStreak')}
               </Text>
 
               {/* Stats row */}
@@ -729,7 +733,7 @@ export default function SharingScreen() {
                   }}
                 >
                   <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: '600' }}>
-                    Best Streak
+                    {t('sharing.bestStreak')}
                   </Text>
                   <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 2 }}>
                     {longestStreak}
@@ -745,7 +749,7 @@ export default function SharingScreen() {
                   }}
                 >
                   <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: '600' }}>
-                    Total Entries
+                    {t('sharing.totalEntries')}
                   </Text>
                   <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 2 }}>
                     {total}
@@ -778,7 +782,7 @@ export default function SharingScreen() {
                 }}
               >
                 <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>
-                  Track your mood with Daiyly
+                  {t('sharing.trackMoodCTA')}
                 </Text>
               </View>
             </View>
@@ -796,7 +800,7 @@ export default function SharingScreen() {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#2563EB" />
           <Text className="text-base text-text-muted mt-4">
-            Preparing your share cards...
+            {t('sharing.preparingCards')}
           </Text>
         </View>
       </SafeAreaView>
@@ -804,9 +808,9 @@ export default function SharingScreen() {
   }
 
   const CARD_TABS: { type: CardType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-    { type: 'entry', label: 'Entry', icon: 'document-text-outline' },
-    { type: 'weekly', label: 'Weekly', icon: 'bar-chart-outline' },
-    { type: 'streak', label: 'Streak', icon: 'flame-outline' },
+    { type: 'entry', label: t('sharing.tabEntry'), icon: 'document-text-outline' },
+    { type: 'weekly', label: t('sharing.tabWeekly'), icon: 'bar-chart-outline' },
+    { type: 'streak', label: t('sharing.tabStreak'), icon: 'flame-outline' },
   ];
 
   return (
@@ -821,9 +825,9 @@ export default function SharingScreen() {
           className="flex-row items-center"
         >
           <Ionicons name="chevron-back" size={24} color={isDark ? '#94A3B8' : '#374151'} />
-          <Text className="text-base text-text-secondary ml-1">Back</Text>
+          <Text className="text-base text-text-secondary ml-1">{t('sharing.back')}</Text>
         </Pressable>
-        <Text className="text-lg font-semibold text-text-primary">Share</Text>
+        <Text className="text-lg font-semibold text-text-primary">{t('sharing.title')}</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -906,7 +910,7 @@ export default function SharingScreen() {
               color={isDark ? '#94A3B8' : '#6B7280'}
             />
             <Text className="text-sm font-semibold text-text-secondary ml-2">
-              Shuffle Style
+              {t('sharing.shuffleStyle')}
             </Text>
           </Pressable>
         )}
@@ -948,7 +952,7 @@ export default function SharingScreen() {
                     marginLeft: 8,
                   }}
                 >
-                  Share Card
+                  {t('sharing.shareCard')}
                 </Text>
               </>
             )}
@@ -957,7 +961,7 @@ export default function SharingScreen() {
 
         {/* Save to Camera Roll hint */}
         <Text className="text-xs text-text-muted mt-3 text-center">
-          Card will be shared as an image (1080x1920)
+          {t('sharing.cardSizeHint')}
         </Text>
       </ScrollView>
     </SafeAreaView>

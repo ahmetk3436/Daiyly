@@ -13,6 +13,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface SleepSummary {
@@ -22,6 +23,7 @@ interface SleepSummary {
 }
 
 export default function HealthKitInsight() {
+  const { t } = useTranslation();
   const { isDark } = useTheme();
   const [summary, setSummary] = useState<SleepSummary | null>(null);
   const [visible, setVisible] = useState(false);
@@ -128,10 +130,10 @@ export default function HealthKitInsight() {
 
   const correlationNote =
     goodSleepRatio >= 0.6
-      ? 'On days with 7+ hours, your entries tend to be more positive.'
+      ? t('healthKit.correlationGood')
       : goodSleepRatio >= 0.3
-      ? 'Getting more sleep could help improve your journal mood scores.'
-      : 'Most tracked days had less than 7 hours. Sleep may be affecting your mood.';
+      ? t('healthKit.correlationMid')
+      : t('healthKit.correlationLow');
 
   return (
     <View className="bg-surface-elevated rounded-2xl p-5 mb-3 border border-border">
@@ -144,8 +146,8 @@ export default function HealthKitInsight() {
           <Ionicons name="moon-outline" size={18} color="#0EA5E9" />
         </View>
         <View className="flex-1">
-          <Text className="text-base font-bold text-text-primary">Sleep vs Mood</Text>
-          <Text className="text-xs text-text-muted">Last 7 days — Apple Health</Text>
+          <Text className="text-base font-bold text-text-primary">{t('healthKit.sleepVsMood')}</Text>
+          <Text className="text-xs text-text-muted">{t('healthKit.last7Days')}</Text>
         </View>
       </View>
 
@@ -158,7 +160,7 @@ export default function HealthKitInsight() {
           <Text className="text-2xl font-bold" style={{ color: '#0EA5E9' }}>
             {summary.avgHours}h
           </Text>
-          <Text className="text-xs text-text-muted mt-0.5 text-center">Avg sleep</Text>
+          <Text className="text-xs text-text-muted mt-0.5 text-center">{t('healthKit.avgSleep')}</Text>
         </View>
 
         <View
@@ -182,13 +184,13 @@ export default function HealthKitInsight() {
           >
             {summary.daysWithGoodSleep}/{summary.totalDaysTracked}
           </Text>
-          <Text className="text-xs text-text-muted mt-0.5 text-center">Days 7+ hrs</Text>
+          <Text className="text-xs text-text-muted mt-0.5 text-center">{t('healthKit.days7Hours')}</Text>
         </View>
       </View>
 
       {/* Correlation note */}
       <Text className="text-sm text-text-secondary leading-relaxed">
-        {`You averaged ${summary.avgHours}h sleep this week. ${correlationNote}`}
+        {`${t('healthKit.averaged', { hours: summary.avgHours })} ${correlationNote}`}
       </Text>
     </View>
   );

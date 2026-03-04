@@ -36,8 +36,10 @@ import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { scheduleSmartReminder, cancelSmartReminder } from '../../lib/smartReminders';
+import { useTranslation } from 'react-i18next';
 
 export default function SettingsScreen() {
+  const { t } = useTranslation();
   const { user, logout, deleteAccount, isGuest } = useAuth();
   const { isSubscribed, handleRestore } = useSubscription();
   const { themeMode, setThemeMode, isDark } = useTheme();
@@ -120,8 +122,8 @@ export default function SettingsScreen() {
     } catch (err: any) {
       Sentry.captureException(err);
       Alert.alert(
-        'Error',
-        err.response?.data?.message || 'Failed to delete account'
+        t('common.error'),
+        err.response?.data?.message || t('settings.deleteAccountFailed')
       );
     } finally {
       setIsDeleting(false);
@@ -145,8 +147,8 @@ export default function SettingsScreen() {
       } else {
         Sentry.captureException(err);
         Alert.alert(
-          'Error',
-          err.response?.data?.message || err.message || 'Failed to delete account'
+          t('common.error'),
+          err.response?.data?.message || err.message || t('settings.deleteAccountFailed')
         );
       }
     } finally {
@@ -168,21 +170,21 @@ export default function SettingsScreen() {
   const confirmDelete = () => {
     hapticWarning();
     Alert.alert(
-      'Delete Account',
-      'This action is permanent. All your data will be erased and cannot be recovered. Are you sure?',
+      t('settings.deleteAccountTitle'),
+      t('settings.deleteAccountBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             if (isSubscribed) {
               Alert.alert(
-                'Active Subscription',
-                'Deleting your account will NOT cancel your subscription. You must cancel it separately to avoid being charged.',
+                t('settings.activeSubscriptionTitle'),
+                t('settings.activeSubscriptionBody'),
                 [
                   {
-                    text: 'Manage Subscription',
+                    text: t('settings.manageSubscription'),
                     onPress: () => {
                       Platform.OS === 'ios'
                         ? Linking.openURL('https://apps.apple.com/account/subscriptions')
@@ -190,11 +192,11 @@ export default function SettingsScreen() {
                     },
                   },
                   {
-                    text: 'Continue Deletion',
+                    text: t('settings.continueDeletion'),
                     style: 'destructive',
                     onPress: proceedWithDeletion,
                   },
-                  { text: 'Cancel', style: 'cancel' },
+                  { text: t('common.cancel'), style: 'cancel' },
                 ]
               );
             } else {
@@ -212,16 +214,16 @@ export default function SettingsScreen() {
     try {
       const success = await handleRestore();
       if (success) {
-        Alert.alert('Restored', 'Your purchases have been restored.');
+        Alert.alert(t('settings.restoredSuccess'), t('settings.restoredSuccessBody'));
       } else {
         Alert.alert(
-          'No Purchases Found',
-          'We could not find any previous purchases.'
+          t('settings.noPurchasesFound'),
+          t('settings.noPurchasesBody')
         );
       }
     } catch (e) {
       Sentry.captureException(e);
-      Alert.alert('Error', 'Failed to restore purchases. Please try again.');
+      Alert.alert(t('common.error'), t('settings.restoreFailed'));
     } finally {
       setIsRestoring(false);
     }
@@ -257,9 +259,9 @@ export default function SettingsScreen() {
       }
 
       if (allEntries.length === 0) {
-        Alert.alert('No Data', fetchFailed
-          ? 'Failed to fetch entries. Please check your connection and try again.'
-          : 'You have no journal entries to export.');
+        Alert.alert(t('settings.noData'), fetchFailed
+          ? t('settings.failedFetchEntries')
+          : t('settings.noEntriesToExport'));
         return;
       }
 
@@ -287,22 +289,19 @@ export default function SettingsScreen() {
           UTI: 'public.json',
         });
         if (fetchFailed) {
-          Alert.alert(
-            'Partial Export',
-            `Exported ${allEntries.length} entries. Some entries could not be fetched due to a network error.`
-          );
+          Alert.alert(t('settings.partialExport'), `Exported ${allEntries.length} entries. Some entries could not be fetched due to a network error.`);
         }
         hapticSuccess();
       } else {
-        Alert.alert('Error', 'Sharing is not available on this device.');
+        Alert.alert(t('common.error'), t('settings.sharingNotAvailable'));
         hapticError();
       }
     } catch (err: any) {
       Sentry.captureException(err);
       hapticError();
       Alert.alert(
-        'Export Failed',
-        err?.response?.data?.message || 'Failed to export data. Please try again.'
+        t('settings.exportFailed'),
+        err?.response?.data?.message || t('settings.exportFailed')
       );
     } finally {
       setIsExporting(false);
@@ -336,9 +335,9 @@ export default function SettingsScreen() {
       }
 
       if (allEntries.length === 0) {
-        Alert.alert('No Data', fetchFailed
-          ? 'Failed to fetch entries. Please check your connection and try again.'
-          : 'You have no journal entries to export.');
+        Alert.alert(t('settings.noData'), fetchFailed
+          ? t('settings.failedFetchEntries')
+          : t('settings.noEntriesToExport'));
         return;
       }
 
@@ -369,16 +368,16 @@ export default function SettingsScreen() {
         });
         hapticSuccess();
         if (fetchFailed) {
-          Alert.alert('Partial Export', `Exported ${allEntries.length} entries. Some entries could not be fetched.`);
+          Alert.alert(t('settings.partialExport'), `Exported ${allEntries.length} entries. Some entries could not be fetched.`);
         }
       } else {
-        Alert.alert('Error', 'Sharing is not available on this device.');
+        Alert.alert(t('common.error'), t('settings.sharingNotAvailable'));
         hapticError();
       }
     } catch (err: any) {
       Sentry.captureException(err);
       hapticError();
-      Alert.alert('Export Failed', err?.response?.data?.message || 'Failed to export data. Please try again.');
+      Alert.alert(t('settings.exportFailed'), err?.response?.data?.message || t('settings.exportFailed'));
     } finally {
       setIsExportingCSV(false);
     }
@@ -386,10 +385,10 @@ export default function SettingsScreen() {
 
   const handleLogout = () => {
     hapticLight();
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('settings.signOut'), t('settings.signOutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Sign Out',
+        text: t('settings.signOut'),
         style: 'destructive',
         onPress: logout,
       },
@@ -457,9 +456,9 @@ export default function SettingsScreen() {
   );
 
   const THEME_OPTIONS: { value: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-    { value: 'system', label: 'System', icon: 'phone-portrait-outline' },
-    { value: 'light', label: 'Light', icon: 'sunny-outline' },
-    { value: 'dark', label: 'Dark', icon: 'moon-outline' },
+    { value: 'system', label: t('settings.themeSystem'), icon: 'phone-portrait-outline' },
+    { value: 'light', label: t('settings.themeLight'), icon: 'sunny-outline' },
+    { value: 'dark', label: t('settings.themeDark'), icon: 'moon-outline' },
   ];
 
   return (
@@ -467,12 +466,12 @@ export default function SettingsScreen() {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="px-6 pt-6 pb-2 bg-background border-b border-border">
-          <Text className="text-2xl font-bold text-text-primary">Settings</Text>
+          <Text className="text-2xl font-bold text-text-primary">{t('settings.title')}</Text>
         </View>
 
         <View className="px-5">
           {/* Profile Section */}
-          <SectionHeader title="Profile" />
+          <SectionHeader title={t('settings.profile')} />
           <View className="bg-surface-elevated rounded-xl overflow-hidden border border-border">
             <View className="p-4 flex-row items-center">
               <View className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/40 items-center justify-center mr-3">
@@ -481,17 +480,17 @@ export default function SettingsScreen() {
               <View className="flex-1">
                 <Text className="text-base font-semibold text-text-primary">
                   {isGuest
-                    ? 'Guest User'
+                    ? t('settings.guestUser')
                     : user?.email?.split('@')[0] || 'User'}
                 </Text>
                 <Text className="text-xs text-text-secondary mt-0.5">
-                  {isGuest ? 'No account' : user?.email}
+                  {isGuest ? t('settings.noAccount') : user?.email}
                 </Text>
               </View>
               {isSubscribed && (
                 <View className="bg-amber-50 dark:bg-amber-900/30 rounded-full px-2.5 py-1 border border-amber-200 dark:border-amber-700">
                   <Text className="text-xs font-bold text-amber-700 dark:text-amber-400">
-                    PRO
+                    {t('common.pro')}
                   </Text>
                 </View>
               )}
@@ -511,14 +510,14 @@ export default function SettingsScreen() {
                   color="#2563EB"
                 />
                 <Text className="text-sm font-medium text-blue-600 ml-2">
-                  Create Account
+                  {t('settings.createAccount')}
                 </Text>
               </Pressable>
             )}
           </View>
 
           {/* Appearance */}
-          <SectionHeader title="Appearance" />
+          <SectionHeader title={t('settings.appearance')} />
           <View className="bg-surface-elevated rounded-xl overflow-hidden border border-border">
             <View className="p-4">
               <View className="flex-row items-center mb-3">
@@ -528,7 +527,7 @@ export default function SettingsScreen() {
                 >
                   <Ionicons name="color-palette-outline" size={18} color="#8B5CF6" />
                 </View>
-                <Text className="text-sm font-medium text-text-primary">Theme</Text>
+                <Text className="text-sm font-medium text-text-primary">{t('settings.theme')}</Text>
               </View>
               <View className="flex-row rounded-xl bg-surface-muted p-1" style={{ gap: 4 }}>
                 {THEME_OPTIONS.map((option) => {
@@ -576,13 +575,13 @@ export default function SettingsScreen() {
           </View>
 
           {/* Notifications */}
-          <SectionHeader title="Notifications" />
+          <SectionHeader title={t('settings.notifications')} />
           <View className="bg-surface-elevated rounded-xl overflow-hidden border border-border">
             <SettingsRow
               icon="notifications-outline"
               iconColor="#2563EB"
-              label="Push Notifications"
-              subtitle="Coming soon in a future update"
+              label={t('settings.pushNotifications')}
+              subtitle={t('settings.pushNotificationsSubtitle')}
               rightElement={
                 <Switch
                   value={notificationsEnabled}
@@ -590,8 +589,8 @@ export default function SettingsScreen() {
                     hapticSelection();
                     if (val) {
                       Alert.alert(
-                        'Coming Soon',
-                        'Push notifications will be available in a future update.'
+                        t('settings.comingSoonAlert'),
+                        t('settings.comingSoonAlertBody')
                       );
                       return;
                     }
@@ -606,11 +605,11 @@ export default function SettingsScreen() {
             <SettingsRow
               icon="bulb-outline"
               iconColor="#F59E0B"
-              label="Smart Reminders"
+              label={t('settings.smartReminders')}
               subtitle={
                 smartRemindersEnabled
-                  ? 'Reminds you at your usual journaling time'
-                  : 'Learns when you journal and reminds you'
+                  ? t('settings.smartRemindersOn')
+                  : t('settings.smartRemindersOff')
               }
               rightElement={
                 smartRemindersLoading ? (
@@ -628,8 +627,8 @@ export default function SettingsScreen() {
             <SettingsRow
               icon="time-outline"
               iconColor="#8B5CF6"
-              label="Notification Center"
-              subtitle="View reminders and reports"
+              label={t('settings.notificationCenter')}
+              subtitle={t('settings.notificationCenterSubtitle')}
               onPress={() => {
                 hapticLight();
                 router.push('/(protected)/notification-center');
@@ -638,7 +637,7 @@ export default function SettingsScreen() {
           </View>
 
           {/* Security */}
-          <SectionHeader title="Security" />
+          <SectionHeader title={t('settings.security')} />
           <View className="bg-surface-elevated rounded-xl overflow-hidden border border-border">
             {biometricType && (
               <>
@@ -665,21 +664,21 @@ export default function SettingsScreen() {
             <SettingsRow
               icon="log-out-outline"
               iconColor="#6B7280"
-              label="Sign Out"
+              label={t('settings.signOut')}
               onPress={handleLogout}
             />
           </View>
 
           {/* Subscription */}
-          <SectionHeader title="Subscription" />
+          <SectionHeader title={t('settings.subscription')} />
           <View className="bg-surface-elevated rounded-xl overflow-hidden border border-border">
             {!isSubscribed && (
               <>
                 <SettingsRow
                   icon="diamond-outline"
                   iconColor="#F59E0B"
-                  label="Upgrade to Premium"
-                  subtitle="$4.99/mo or $29.99/yr"
+                  label={t('settings.upgradeToPremium')}
+                  subtitle={t('settings.upgradeToPremiumSubtitle')}
                   onPress={() => {
                     hapticLight();
                     router.push('/(protected)/paywall?source=settings');
@@ -691,19 +690,19 @@ export default function SettingsScreen() {
             <SettingsRow
               icon="refresh-outline"
               iconColor="#2563EB"
-              label={isRestoring ? 'Restoring...' : 'Restore Purchases'}
+              label={isRestoring ? t('settings.restoring') : t('settings.restorePurchases')}
               onPress={isRestoring ? undefined : handleRestorePurchases}
             />
           </View>
 
           {/* Data & Sharing */}
-          <SectionHeader title="Data & Sharing" />
+          <SectionHeader title={t('settings.dataSharing')} />
           <View className="bg-surface-elevated rounded-xl overflow-hidden border border-border">
             <SettingsRow
               icon="share-social-outline"
               iconColor="#8B5CF6"
-              label="Share Mood Cards"
-              subtitle={isSubscribed ? 'Create beautiful share cards' : 'Premium feature'}
+              label={t('settings.shareMoodCards')}
+              subtitle={isSubscribed ? t('settings.shareMoodCardsSubtitle') : t('settings.premiumFeature')}
               onPress={() => {
                 hapticLight();
                 requirePro('Shareable Mood Cards', () => {
@@ -715,8 +714,8 @@ export default function SettingsScreen() {
             <SettingsRow
               icon="download-outline"
               iconColor="#10B981"
-              label={isExporting ? 'Exporting...' : 'Export Data'}
-              subtitle={isSubscribed ? 'Export as JSON' : 'Premium feature'}
+              label={isExporting ? t('settings.exporting') : t('settings.exportData')}
+              subtitle={isSubscribed ? t('settings.exportDataSubtitle') : t('settings.premiumFeature')}
               onPress={() => {
                 hapticLight();
                 requirePro('Data Export', () => {
@@ -728,8 +727,8 @@ export default function SettingsScreen() {
             <SettingsRow
               icon="document-text-outline"
               iconColor="#10B981"
-              label={isExportingCSV ? 'Exporting...' : 'Export as CSV'}
-              subtitle={isSubscribed ? 'Export entries as CSV spreadsheet' : 'Premium feature'}
+              label={isExportingCSV ? t('settings.exporting') : t('settings.exportCSV')}
+              subtitle={isSubscribed ? t('settings.exportCSVSubtitle') : t('settings.premiumFeature')}
               onPress={() => {
                 hapticLight();
                 requirePro('CSV Export', () => {
@@ -741,8 +740,8 @@ export default function SettingsScreen() {
             <SettingsRow
               icon="medical-outline"
               iconColor="#2563EB"
-              label="Therapist Report"
-              subtitle="Share a 30-day AI summary with your therapist"
+              label={t('settings.therapistReport')}
+              subtitle={t('settings.therapistReportSubtitle')}
               onPress={() => {
                 hapticLight();
                 requirePro('Therapist Report', () => {
@@ -753,12 +752,12 @@ export default function SettingsScreen() {
           </View>
 
           {/* About */}
-          <SectionHeader title="About" />
+          <SectionHeader title={t('settings.about')} />
           <View className="bg-surface-elevated rounded-xl overflow-hidden border border-border">
             <SettingsRow
               icon="shield-checkmark-outline"
               iconColor="#6B7280"
-              label="Privacy Policy"
+              label={t('settings.privacyPolicy')}
               onPress={() => {
                 hapticLight();
                 Linking.openURL('https://vexellabspro.com/daiyly/privacy');
@@ -768,7 +767,7 @@ export default function SettingsScreen() {
             <SettingsRow
               icon="document-text-outline"
               iconColor="#6B7280"
-              label="Terms of Service"
+              label={t('settings.termsOfService')}
               onPress={() => {
                 hapticLight();
                 Linking.openURL('https://vexellabspro.com/daiyly/terms');
@@ -778,7 +777,7 @@ export default function SettingsScreen() {
             <SettingsRow
               icon="information-circle-outline"
               iconColor="#6B7280"
-              label="Version"
+              label={t('settings.version')}
               subtitle="1.0.0"
             />
           </View>
@@ -786,13 +785,13 @@ export default function SettingsScreen() {
           {/* Danger Zone */}
           {!isGuest && (
             <>
-              <SectionHeader title="Danger Zone" />
+              <SectionHeader title={t('settings.dangerZone')} />
               <View className="bg-surface-elevated rounded-xl overflow-hidden border border-red-100 dark:border-red-900">
                 <SettingsRow
                   icon="trash-outline"
                   iconColor="#EF4444"
-                  label="Delete Account"
-                  subtitle="Permanently remove all your data"
+                  label={t('settings.deleteAccount')}
+                  subtitle={t('settings.permanentlyRemoveData')}
                   onPress={confirmDelete}
                   destructive
                 />
@@ -809,15 +808,14 @@ export default function SettingsScreen() {
       <Modal
         visible={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
-        title="Confirm Deletion"
+        title={t('settings.confirmDeletion')}
       >
         <Text className="mb-4 text-sm text-text-secondary">
-          Enter your password to confirm account deletion. This cannot be
-          undone.
+          {t('settings.enterPasswordConfirm')}
         </Text>
         <View className="mb-4">
           <Input
-            placeholder="Your password"
+            placeholder={t('settings.yourPassword')}
             value={deletePassword}
             onChangeText={setDeletePassword}
             secureTextEntry
@@ -826,14 +824,14 @@ export default function SettingsScreen() {
         <View className="flex-row gap-3">
           <View className="flex-1">
             <Button
-              title="Cancel"
+              title={t('common.cancel')}
               variant="outline"
               onPress={() => setShowDeleteModal(false)}
             />
           </View>
           <View className="flex-1">
             <Button
-              title="Delete"
+              title={t('common.delete')}
               variant="destructive"
               onPress={handleDeleteAccount}
               isLoading={isDeleting}

@@ -32,6 +32,7 @@ import {
   getMoodLabel,
 } from '../../../components/ui/MoodCard';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 import type { JournalEntry } from '../../../types/journal';
 
 const EMOTION_COLORS: Record<string, { bg: string; text: string; bar: string }> = {
@@ -106,6 +107,7 @@ function getMoodScoreColor(score: number): string {
 }
 
 export default function EntryDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isDark } = useTheme();
   const { isGuest } = useAuth();
@@ -181,7 +183,7 @@ export default function EntryDetailScreen() {
   const handleSave = async () => {
     if (!editContent.trim()) {
       hapticError();
-      Alert.alert('Error', 'Please write something in your journal entry.');
+      Alert.alert(t('common.error'), t('entry.errorSaveBody'));
       return;
     }
 
@@ -219,7 +221,7 @@ export default function EntryDetailScreen() {
     } catch (error: any) {
       console.error('Failed to save entry:', error);
       hapticError();
-      Alert.alert('Error', 'Failed to save changes. Please try again.');
+      Alert.alert(t('common.error'), t('entry.failedSaveChanges'));
     } finally {
       setSaving(false);
     }
@@ -228,12 +230,12 @@ export default function EntryDetailScreen() {
   const handleDelete = () => {
     hapticSelection();
     Alert.alert(
-      'Delete Entry',
-      'Are you sure you want to delete this journal entry? This action cannot be undone.',
+      t('entry.deleteEntry'),
+      t('entry.areYouSureDelete'),
       [
-        { text: 'Cancel', style: 'cancel', onPress: () => hapticLight() },
+        { text: t('common.cancel'), style: 'cancel', onPress: () => hapticLight() },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -250,8 +252,8 @@ export default function EntryDetailScreen() {
               console.error('Failed to delete entry:', error);
               hapticError();
               Alert.alert(
-                'Error',
-                'Failed to delete entry. Please try again.'
+                t('common.error'),
+                t('entry.failedDeleteEntry')
               );
               setDeleting(false);
             }
@@ -274,7 +276,7 @@ export default function EntryDetailScreen() {
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#2563EB" />
-          <Text className="text-text-muted mt-4">Loading entry...</Text>
+          <Text className="text-text-muted mt-4">{t('entry.loadingEntry')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -288,10 +290,10 @@ export default function EntryDetailScreen() {
             <Ionicons name="alert-circle-outline" size={32} color="#EF4444" />
           </View>
           <Text className="text-lg font-semibold text-text-primary mb-2">
-            Entry not found
+            {t('entry.entryNotFound')}
           </Text>
           <Text className="text-sm text-text-secondary text-center mb-6">
-            Unable to load this journal entry. Please check your connection.
+            {t('entry.entryNotFoundSubtitle')}
           </Text>
           <View className="flex-row" style={{ gap: 12 }}>
             <Pressable
@@ -302,7 +304,7 @@ export default function EntryDetailScreen() {
               }}
             >
               <Text className="text-white font-semibold text-sm">
-                Try Again
+                {t('common.tryAgain')}
               </Text>
             </Pressable>
             <Pressable
@@ -313,7 +315,7 @@ export default function EntryDetailScreen() {
               }}
             >
               <Text className="text-text-primary font-semibold text-sm">
-                Go Back
+                {t('common.goBack')}
               </Text>
             </Pressable>
           </View>
@@ -338,7 +340,7 @@ export default function EntryDetailScreen() {
             className="flex-row items-center"
           >
             <Ionicons name="chevron-back" size={24} color={isDark ? '#94A3B8' : '#374151'} />
-            <Text className="text-base text-text-secondary ml-1">Back</Text>
+            <Text className="text-base text-text-secondary ml-1">{t('common.back')}</Text>
           </Pressable>
 
           {!isEditing && (
@@ -427,7 +429,7 @@ export default function EntryDetailScreen() {
                         transition={200}
                       />
                       <Text className="text-white text-sm mt-4 opacity-60">
-                        Tap anywhere to close
+                        {t('entry.tapToClose')}
                       </Text>
                     </Pressable>
                   </Modal>
@@ -476,7 +478,7 @@ export default function EntryDetailScreen() {
                     {entry.mood_emoji || '\u{1F60A}'}
                   </Text>
                   <View>
-                    <Text className="text-sm text-text-muted">Mood Score</Text>
+                    <Text className="text-sm text-text-muted">{t('entry.moodScoreLabel')}</Text>
                     <View className="flex-row items-baseline">
                       <Text
                         className="text-2xl font-bold"
@@ -507,7 +509,7 @@ export default function EntryDetailScreen() {
                     {/* Section Header */}
                     <View className="flex-row items-center justify-between mb-3">
                       <Text className="text-sm font-semibold text-text-primary">
-                        ✨ AI Emotion Analysis
+                        {t('entry.aiEmotionAnalysis')}
                       </Text>
                       {(() => {
                         const emotionKey = entry.detected_emotion.toLowerCase();
@@ -560,7 +562,7 @@ export default function EntryDetailScreen() {
 
                     {/* Disclaimer */}
                     <Text className="text-[10px] text-text-muted mt-3">
-                      Analyzed by EmotionSense AI · not clinical advice
+                      {t('entry.emotionSenseDisclaimer')}
                     </Text>
                   </View>
                 ) : null}
@@ -574,7 +576,7 @@ export default function EntryDetailScreen() {
                 {entry.updated_at &&
                   entry.updated_at !== entry.created_at && (
                     <Text className="text-xs text-text-muted mt-4 italic">
-                      Edited{' '}
+                      {t('entry.editedAt')}{' '}
                       {new Date(entry.updated_at).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
@@ -600,7 +602,7 @@ export default function EntryDetailScreen() {
                         <Ionicons name="mic" size={16} color="#2563EB" />
                       </View>
                       <Text className="text-sm font-semibold text-text-primary">
-                        Voice Transcript
+                        {t('entry.voiceTranscript')}
                       </Text>
                     </View>
                     <Ionicons
@@ -627,7 +629,7 @@ export default function EntryDetailScreen() {
                 >
                   <Ionicons name="share-outline" size={20} color="#FFFFFF" />
                   <Text className="text-base font-semibold text-white ml-2">
-                    Share This Entry
+                    {t('entry.shareThisEntry')}
                   </Text>
                 </Pressable>
               )}
@@ -646,7 +648,7 @@ export default function EntryDetailScreen() {
               <TextInput
                 multiline
                 className="bg-input-bg rounded-xl p-4 text-base min-h-[150px] text-text-primary"
-                placeholder="What's on your mind?"
+                placeholder={t('entry.whatOnYourMind')}
                 placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
                 value={editContent}
                 onChangeText={setEditContent}
@@ -655,7 +657,7 @@ export default function EntryDetailScreen() {
 
               {/* Mood Emoji Picker */}
               <Text className="text-sm font-semibold text-text-primary mt-4 mb-2">
-                How are you feeling?
+                {t('entry.howAreYou')}
               </Text>
               <ScrollView
                 horizontal
@@ -687,7 +689,7 @@ export default function EntryDetailScreen() {
 
               {/* Mood Score Picker */}
               <Text className="text-sm font-semibold text-text-primary mt-4 mb-2">
-                Rate your day (1-100)
+                {t('entry.rateYourDay')}
               </Text>
               <View className="flex-row" style={{ gap: 8 }}>
                 {MOOD_SCORES.map((score) => (
@@ -725,7 +727,7 @@ export default function EntryDetailScreen() {
 
               {/* Card Color Picker */}
               <Text className="text-sm font-semibold text-text-primary mt-4 mb-2">
-                Card color
+                {t('entry.cardColor')}
               </Text>
               <View className="flex-row" style={{ gap: 12 }}>
                 {CARD_COLORS.map((color) => (
@@ -753,14 +755,14 @@ export default function EntryDetailScreen() {
                 <Pressable className="flex-1" onPress={handleCancelEdit}>
                   <View className="bg-surface-muted rounded-xl py-4 items-center">
                     <Text className="text-base font-semibold text-text-secondary">
-                      Cancel
+                      {t('common.cancel')}
                     </Text>
                   </View>
                 </Pressable>
                 <Pressable className="flex-1" onPress={handleSave}>
                   <View className="bg-blue-600 rounded-xl py-4 items-center">
                     <Text className="text-base font-semibold text-white">
-                      Save Changes
+                      {t('entry.saveChanges')}
                     </Text>
                   </View>
                 </Pressable>
@@ -777,7 +779,7 @@ export default function EntryDetailScreen() {
           >
             <ActivityIndicator size="large" color="#2563EB" />
             <Text className="text-text-secondary mt-3 font-medium">
-              {saving ? 'Saving...' : 'Deleting...'}
+              {saving ? t('entry.saving') : t('entry.deleting')}
             </Text>
           </View>
         )}

@@ -6,6 +6,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { hapticLight, hapticSelection, hapticError } from '../../lib/haptics';
@@ -50,6 +51,7 @@ function timeAgo(date: Date): string {
 }
 
 export default function NotificationCenterScreen() {
+  const { t } = useTranslation();
   const { isDark } = useTheme();
   const { isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -124,13 +126,13 @@ export default function NotificationCenterScreen() {
           hapticError();
           const isAndroid = Platform.OS === 'android';
           Alert.alert(
-            'Notifications Disabled',
+            t('settings.notificationsDisabledTitle'),
             isAndroid
-              ? 'Notification permission was denied. On Android 13+, you need to allow notifications in Settings > Apps > Daiyly > Notifications.'
-              : 'Please enable notifications in your device settings to receive reminders.',
+              ? t('settings.notificationsDisabledAndroid')
+              : t('settings.notificationsDisabledIOS'),
             [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Open Settings', onPress: () => Linking.openSettings() },
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('settings.openSettings'), onPress: () => Linking.openSettings() },
             ]
           );
           return; // Don't toggle the switch
@@ -157,8 +159,8 @@ export default function NotificationCenterScreen() {
       items.push({
         id: 'guest-reminder',
         type: 'reminder',
-        title: 'Daily Reminder',
-        message: "How are you feeling today? Take a moment to journal.",
+        title: t('notifications.dailyReminder'),
+        message: t('notifications.reminderBody'),
         time: timeAgo(now),
         read: false,
         icon: 'notifications-outline',
@@ -185,10 +187,10 @@ export default function NotificationCenterScreen() {
           items.push({
             id: 'streak-current',
             type: 'streak',
-            title: 'Streak Update',
+            title: t('notifications.streakUpdate'),
             message: currentStreak >= 7
-              ? `Amazing! Your ${currentStreak}-day streak is going strong!`
-              : `You're on a ${currentStreak}-day streak. Keep it up!`,
+              ? t('notifications.streakGoingStrong', { count: currentStreak })
+              : t('notifications.streakKeepUp', { count: currentStreak }),
             time: timeAgo(new Date(streak.last_entry_date || now)),
             read: false,
             icon: 'flame-outline',
@@ -198,8 +200,8 @@ export default function NotificationCenterScreen() {
           items.push({
             id: 'streak-broken',
             type: 'streak',
-            title: 'Streak Alert',
-            message: "Your streak has reset. Journal today to start a new one!",
+            title: t('notifications.streakAlert'),
+            message: t('notifications.streakBroken'),
             time: timeAgo(now),
             read: false,
             icon: 'flame-outline',
@@ -219,8 +221,8 @@ export default function NotificationCenterScreen() {
           items.push({
             id: 'insight-mood',
             type: 'insight',
-            title: 'Weekly Insight',
-            message: `Your most common mood this week was ${topEmoji} with an average score of ${avgScore}/100.`,
+            title: t('notifications.weeklyInsight'),
+            message: t('notifications.moodInsightBody', { emoji: topEmoji, score: avgScore }),
             time: timeAgo(now),
             read: false,
             icon: 'analytics-outline',
@@ -229,11 +231,16 @@ export default function NotificationCenterScreen() {
         }
 
         if (totalEntries > 0) {
+          const trendKey = insights.mood_trend === 'improving'
+            ? 'notifications.weeklySummaryImproving'
+            : insights.mood_trend === 'declining'
+            ? 'notifications.weeklySummaryDeclining'
+            : 'notifications.weeklySummaryStable';
           items.push({
             id: 'insight-entries',
             type: 'weekly',
-            title: 'Weekly Summary',
-            message: `You wrote ${totalEntries} entries this week with ${insights.total_words || 0} total words. ${insights.mood_trend === 'improving' ? 'Your mood is trending up!' : insights.mood_trend === 'declining' ? 'Consider some self-care this week.' : 'Your mood has been steady.'}`,
+            title: t('notifications.weeklySummary'),
+            message: `${t('notifications.weeklySummaryBody', { entries: totalEntries, words: insights.total_words || 0 })} ${t(trendKey)}`,
             time: timeAgo(now),
             read: true,
             icon: 'document-text-outline',
@@ -246,8 +253,8 @@ export default function NotificationCenterScreen() {
       items.push({
         id: 'daily-reminder',
         type: 'reminder',
-        title: 'Daily Reminder',
-        message: "How are you feeling today? Take a moment to journal.",
+        title: t('notifications.dailyReminder'),
+        message: t('notifications.reminderBody'),
         time: timeAgo(now),
         read: true,
         icon: 'notifications-outline',
@@ -259,8 +266,8 @@ export default function NotificationCenterScreen() {
       items.push({
         id: 'fallback-reminder',
         type: 'reminder',
-        title: 'Daily Reminder',
-        message: "How are you feeling today? Take a moment to journal.",
+        title: t('notifications.dailyReminder'),
+        message: t('notifications.reminderBody'),
         time: timeAgo(now),
         read: false,
         icon: 'notifications-outline',
@@ -270,7 +277,7 @@ export default function NotificationCenterScreen() {
 
     setNotifications(items);
     setLoading(false);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, t]);
 
   useEffect(() => {
     fetchNotifications();
@@ -343,20 +350,20 @@ export default function NotificationCenterScreen() {
 
       if (optimalHour === undefined || optimalHour === null) {
         Alert.alert(
-          'Not Enough Data',
-          'Journal at least 5 times to get a personalized schedule.'
+          t('settings.notEnoughData'),
+          t('settings.notEnoughDataBody')
         );
         return;
       }
 
       const timeLabel = formatHour(optimalHour);
       Alert.alert(
-        'Smart Schedule',
-        `Based on your journaling habits, the best time is ${timeLabel}. Use this?`,
+        t('settings.smartScheduleTitle'),
+        t('settings.smartScheduleBody', { time: timeLabel }),
         [
-          { text: 'Not Now', style: 'cancel' },
+          { text: t('common.notNow'), style: 'cancel' },
           {
-            text: 'Yes, Use This',
+            text: t('settings.useThisTime'),
             onPress: async () => {
               hapticSelection();
               // Make sure daily reminder is enabled
@@ -365,13 +372,13 @@ export default function NotificationCenterScreen() {
                 await persistPrefs({ dailyReminder: true, streakAlerts, weeklyReports });
               }
               await scheduleReminderAtHour(optimalHour);
-              Alert.alert('Done', `Daily reminder set for ${timeLabel}.`);
+              Alert.alert(t('settings.dailyReminderSet'), t('settings.dailyReminderSetBody', { time: timeLabel }));
             },
           },
         ]
       );
     } catch {
-      Alert.alert('Smart Schedule', 'Journal at least 5 times to get a personalized schedule.');
+      Alert.alert(t('settings.smartScheduleTitle'), t('settings.notEnoughDataBody'));
     } finally {
       setSmartScheduleLoading(false);
     }
@@ -389,15 +396,15 @@ export default function NotificationCenterScreen() {
           className="flex-row items-center"
         >
           <Ionicons name="chevron-back" size={24} color={isDark ? '#94A3B8' : '#374151'} />
-          <Text className="text-base text-text-secondary ml-1">Back</Text>
+          <Text className="text-base text-text-secondary ml-1">{t('common.back')}</Text>
         </Pressable>
         <Text className="text-lg font-semibold text-text-primary">
-          Notifications
+          {t('notifications.title')}
         </Text>
         {unreadCount > 0 ? (
           <Pressable onPress={markAllRead}>
             <Text className="text-sm font-medium text-blue-600">
-              Read All
+              {t('notifications.readAll')}
             </Text>
           </Pressable>
         ) : (
@@ -420,10 +427,10 @@ export default function NotificationCenterScreen() {
             </View>
             <View className="flex-1">
               <Text className="text-xs font-semibold text-red-800 dark:text-red-200">
-                Notifications Blocked by System
+                {t('notifications.notificationsBlockedTitle')}
               </Text>
               <Text className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">
-                Tap to open Settings and allow notifications
+                {t('notifications.notificationsBlockedSubtitle')}
               </Text>
             </View>
             <Ionicons name="open-outline" size={16} color="#EF4444" />
@@ -433,7 +440,7 @@ export default function NotificationCenterScreen() {
         {/* Notification Preferences */}
         <View className="px-5 pt-5 pb-3">
           <Text className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
-            Preferences
+            {t('notifications.preferences')}
           </Text>
           <View className="bg-surface rounded-xl overflow-hidden">
             <View className="flex-row items-center justify-between p-4 border-b border-border">
@@ -445,10 +452,10 @@ export default function NotificationCenterScreen() {
                 />
                 <View className="ml-3">
                   <Text className="text-sm font-medium text-text-primary">
-                    Daily Reminder
+                    {t('notifications.dailyReminderLabel')}
                   </Text>
                   <Text className="text-xs text-text-secondary">
-                    Remind to journal each day
+                    {t('notifications.dailyReminderSubtitle')}
                   </Text>
                 </View>
               </View>
@@ -467,10 +474,10 @@ export default function NotificationCenterScreen() {
                 />
                 <View className="ml-3">
                   <Text className="text-sm font-medium text-text-primary">
-                    Streak Alerts
+                    {t('notifications.streakAlerts')}
                   </Text>
                   <Text className="text-xs text-text-secondary">
-                    Warn before streak breaks
+                    {t('notifications.streakAlertsSubtitle')}
                   </Text>
                 </View>
               </View>
@@ -489,10 +496,10 @@ export default function NotificationCenterScreen() {
                 />
                 <View className="ml-3">
                   <Text className="text-sm font-medium text-text-primary">
-                    Weekly Reports
+                    {t('notifications.weeklyReports')}
                   </Text>
                   <Text className="text-xs text-text-secondary">
-                    Summary of your week
+                    {t('notifications.weeklyReportsSubtitle')}
                   </Text>
                 </View>
               </View>
@@ -520,10 +527,10 @@ export default function NotificationCenterScreen() {
               </View>
               <View className="flex-1">
                 <Text className="text-sm font-semibold text-blue-900 dark:text-blue-200">
-                  Smart Schedule
+                  {t('notifications.smartSchedule')}
                 </Text>
                 <Text className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-                  Find the best time based on your habits
+                  {t('notifications.smartScheduleSubtitle')}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={isDark ? '#60A5FA' : '#2563EB'} />
@@ -535,12 +542,12 @@ export default function NotificationCenterScreen() {
         <View className="px-5 pt-3 pb-2">
           <View className="flex-row items-center justify-between mb-3">
             <Text className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Recent
+              {t('notifications.recentSection')}
             </Text>
             {unreadCount > 0 && (
               <View className="bg-blue-100 dark:bg-blue-900/40 rounded-full px-2 py-0.5">
                 <Text className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                  {unreadCount} new
+                  {t('notifications.newBadge', { count: unreadCount })}
                 </Text>
               </View>
             )}
@@ -549,7 +556,7 @@ export default function NotificationCenterScreen() {
           {loading ? (
             <View className="items-center py-12">
               <ActivityIndicator size="large" color="#2563EB" />
-              <Text className="text-sm text-text-muted mt-3">Loading...</Text>
+              <Text className="text-sm text-text-muted mt-3">{t('common.loading')}</Text>
             </View>
           ) : notifications.length === 0 ? (
             <View className="items-center py-12">
@@ -559,10 +566,10 @@ export default function NotificationCenterScreen() {
                 color={isDark ? '#475569' : '#D1D5DB'}
               />
               <Text className="text-base font-medium text-text-muted mt-3">
-                No notifications
+                {t('notifications.noNotifications')}
               </Text>
               <Text className="text-sm text-text-muted mt-1">
-                You're all caught up!
+                {t('notifications.allCaughtUp')}
               </Text>
             </View>
           ) : (

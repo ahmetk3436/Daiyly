@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Sentry from '@sentry/react-native';
+import { useTranslation } from 'react-i18next';
 import api from '../../lib/api';
 import { hapticLight } from '../../lib/haptics';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -43,18 +44,19 @@ function buildCalendarDays(entryDates: Set<string>): CalendarDay[] {
   return days;
 }
 
-function getMotivationalMessage(streak: number): string {
-  if (streak === 0) return "Start your streak today. Every journey begins with one entry.";
-  if (streak < 3) return "Great start! Keep going — consistency is where the magic happens.";
-  if (streak < 7) return "You're building a real habit. Three more days for your first week!";
-  if (streak < 14) return "One full week of journaling. You're officially consistent.";
-  if (streak < 30) return "Two weeks strong! You're in the top 20% of journalers.";
-  if (streak < 60) return "A full month! Your self-awareness is growing every single day.";
-  if (streak < 100) return "Two months deep. Future you will be so grateful for this.";
-  return "100+ days. You've made journaling part of who you are. Legendary.";
+function getMotivationalKey(streak: number): string {
+  if (streak === 0) return 'streak.motivational0';
+  if (streak < 3) return 'streak.motivational1';
+  if (streak < 7) return 'streak.motivational3';
+  if (streak < 14) return 'streak.motivational7';
+  if (streak < 30) return 'streak.motivational14';
+  if (streak < 60) return 'streak.motivational30';
+  if (streak < 100) return 'streak.motivational60';
+  return 'streak.motivational100';
 }
 
 export default function StreakDetailsScreen() {
+  const { t } = useTranslation();
   const { isDark } = useTheme();
   const { isAuthenticated } = useAuth();
 
@@ -119,7 +121,7 @@ export default function StreakDetailsScreen() {
   const totalEntries = streak?.total_entries || 0;
   const graceActive = streak?.grace_period_active || streak?.grace_active || false;
   const calendarDays = buildCalendarDays(entryDates);
-  const motivationalMsg = getMotivationalMessage(currentStreak);
+  const motivationalMsg = t(getMotivationalKey(currentStreak));
 
   // Group calendar into rows of 7
   const calendarRows: CalendarDay[][] = [];
@@ -140,7 +142,7 @@ export default function StreakDetailsScreen() {
         >
           <Ionicons name="chevron-back" size={24} color={isDark ? '#94A3B8' : '#374151'} />
         </Pressable>
-        <Text className="text-lg font-bold text-text-primary">Streak Details</Text>
+        <Text className="text-lg font-bold text-text-primary">{t('streak.title')}</Text>
       </View>
 
       <ScrollView
@@ -160,14 +162,14 @@ export default function StreakDetailsScreen() {
               {currentStreak}
             </Text>
             <Text className="text-base font-semibold text-text-secondary mt-1">
-              {currentStreak === 1 ? 'day streak' : 'day streak'}
+              {t('streak.dayStreak_other')}
             </Text>
 
             {graceActive && (
               <View className="mt-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl px-4 py-2 flex-row items-center border border-indigo-100 dark:border-indigo-800">
                 <Text className="text-sm mr-1">{'\u{1F6E1}\u{FE0F}'}</Text>
                 <Text className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-                  Streak Protected — Grace period active
+                  {t('streak.streakProtectedGrace')}
                 </Text>
               </View>
             )}
@@ -176,7 +178,7 @@ export default function StreakDetailsScreen() {
               <View className="mt-3 bg-amber-50 dark:bg-amber-900/30 rounded-xl px-4 py-2 flex-row items-center border border-amber-100 dark:border-amber-800">
                 <Ionicons name="shield-checkmark" size={14} color="#D97706" />
                 <Text className="text-xs font-semibold text-amber-700 dark:text-amber-300 ml-1.5">
-                  7+ day streak earns a 1-day grace period
+                  {t('streak.graceEarned')}
                 </Text>
               </View>
             )}
@@ -187,12 +189,12 @@ export default function StreakDetailsScreen() {
             <View className="flex-1 bg-surface-elevated rounded-2xl p-4 border border-border items-center">
               <Ionicons name="trophy-outline" size={22} color="#F59E0B" />
               <Text className="text-2xl font-black text-text-primary mt-1">{longestStreak}</Text>
-              <Text className="text-xs text-text-muted mt-0.5">Longest</Text>
+              <Text className="text-xs text-text-muted mt-0.5">{t('streak.longestLabel')}</Text>
             </View>
             <View className="flex-1 bg-surface-elevated rounded-2xl p-4 border border-border items-center">
               <Ionicons name="journal-outline" size={22} color="#2563EB" />
               <Text className="text-2xl font-black text-text-primary mt-1">{totalEntries}</Text>
-              <Text className="text-xs text-text-muted mt-0.5">Total Entries</Text>
+              <Text className="text-xs text-text-muted mt-0.5">{t('streak.totalEntriesLabel')}</Text>
             </View>
           </View>
 
@@ -201,7 +203,7 @@ export default function StreakDetailsScreen() {
             <View className="flex-row items-center mb-1.5">
               <Ionicons name="sparkles" size={14} color="#2563EB" />
               <Text className="text-xs font-semibold text-blue-700 dark:text-blue-300 ml-1.5">
-                Your Journey
+                {t('streak.yourJourney')}
               </Text>
             </View>
             <Text className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
@@ -213,10 +215,10 @@ export default function StreakDetailsScreen() {
           <View className="bg-surface-elevated rounded-2xl p-4 mb-4 border border-border">
             <View className="flex-row items-center mb-2">
               <Text className="text-base mr-2">{'\u{1F9CA}'}</Text>
-              <Text className="text-sm font-bold text-text-primary">Grace Period</Text>
+              <Text className="text-sm font-bold text-text-primary">{t('streak.gracePeriod')}</Text>
             </View>
             <Text className="text-sm text-text-secondary leading-relaxed">
-              Once you reach a 7-day streak, you earn a 1-day grace period. This means you can miss one day without breaking your streak — life happens, and your progress is protected.
+              {t('streak.gracePeriodBody')}
             </Text>
             <View className="mt-3 flex-row items-center">
               <View
@@ -227,7 +229,7 @@ export default function StreakDetailsScreen() {
                   className="text-xs font-semibold"
                   style={{ color: graceActive ? '#4F46E5' : '#64748B' }}
                 >
-                  {graceActive ? 'Active now' : currentStreak >= 7 ? 'Available' : `Unlocks at 7 days`}
+                  {graceActive ? t('streak.graceActive') : currentStreak >= 7 ? t('streak.graceAvailable') : t('streak.graceUnlocksAt')}
                 </Text>
               </View>
             </View>
@@ -236,7 +238,7 @@ export default function StreakDetailsScreen() {
           {/* Calendar */}
           <View className="bg-surface-elevated rounded-2xl p-4 mb-4 border border-border">
             <Text className="text-sm font-bold text-text-primary mb-3">
-              Last 5 Weeks
+              {t('streak.last5Weeks')}
             </Text>
             {calendarRows.map((row, rowIndex) => (
               <View key={rowIndex} className="flex-row justify-between mb-2">
@@ -278,11 +280,11 @@ export default function StreakDetailsScreen() {
             <View className="flex-row items-center mt-3" style={{ gap: 16 }}>
               <View className="flex-row items-center">
                 <View className="w-3 h-3 rounded-full bg-green-500 mr-1.5" />
-                <Text className="text-xs text-text-muted">Entry logged</Text>
+                <Text className="text-xs text-text-muted">{t('streak.legendEntryLogged')}</Text>
               </View>
               <View className="flex-row items-center">
                 <View className="w-3 h-3 rounded-full bg-blue-600 mr-1.5" />
-                <Text className="text-xs text-text-muted">Today</Text>
+                <Text className="text-xs text-text-muted">{t('streak.legendToday')}</Text>
               </View>
             </View>
           </View>
@@ -297,7 +299,7 @@ export default function StreakDetailsScreen() {
               className="bg-blue-600 rounded-2xl py-4 items-center mb-4 active:opacity-90"
             >
               <Text className="text-white font-bold text-base">
-                {'\u{270D}\u{FE0F}'} Write Today's Entry
+                {'\u{270D}\u{FE0F}'} {t('streak.writeTodayEntry')}
               </Text>
             </Pressable>
           )}
