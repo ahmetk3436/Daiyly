@@ -34,6 +34,7 @@ import {
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import type { JournalEntry } from '../../../types/journal';
+import { analyzeTextEmotion, getEmotionColor, type EmotionAIResult } from '../../../lib/emotionAI';
 
 const EMOTION_COLORS: Record<string, { bg: string; text: string; bar: string }> = {
   happy: { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-300', bar: '#F59E0B' },
@@ -123,6 +124,8 @@ export default function EntryDetailScreen() {
   const [deleting, setDeleting] = useState(false);
   const [photoFullscreen, setPhotoFullscreen] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [liveAiEmotion, setLiveAiEmotion] = useState<EmotionAIResult | null>(null);
+  const [liveAiAnalyzing, setLiveAiAnalyzing] = useState(false);
 
   const fetchEntry = useCallback(async () => {
     try {
@@ -163,6 +166,21 @@ export default function EntryDetailScreen() {
   useEffect(() => {
     fetchEntry();
   }, [fetchEntry]);
+
+  // Live emotion analysis — only runs when entry has no backend-detected emotion
+  useEffect(() => {
+    if (!entry || entry.detected_emotion) return;
+    if (!entry.content || entry.content.length < 20) return;
+    let cancelled = false;
+    setLiveAiAnalyzing(true);
+    analyzeTextEmotion(entry.content).then((result) => {
+      if (!cancelled) {
+        setLiveAiEmotion(result);
+        setLiveAiAnalyzing(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [entry?.id, entry?.detected_emotion]);
 
   const handleEdit = () => {
     hapticSelection();
@@ -566,6 +584,66 @@ export default function EntryDetailScreen() {
                     </Text>
                   </View>
                 ) : null}
+
+                {/* Live EmotionSenseML section — shown when no backend emotion data exists */}
+                {!entry.detected_emotion && entry.content && entry.content.length >= 20 && (
+                  <View className="mb-4 pb-4 border-b border-border">
+                    <View className="flex-row items-center justify-between mb-3">
+                      <Text className="text-sm font-semibold text-text-primary">
+                        {t('aiEmotion.cardTitle')}
+                      </Text>
+                      <Text className="text-[10px] text-text-muted">{t('aiEmotion.poweredBy')}</Text>
+                    </View>
+
+                    {liveAiAnalyzing ? (
+                      <View className="flex-row items-center py-2" style={{ gap: 8 }}>
+                        <ActivityIndicator size="small" color="#94A3B8" />
+                        <Text className="text-xs text-text-muted">{t('aiEmotion.analyzing')}</Text>
+                      </View>
+                    ) : liveAiEmotion ? (
+                      <>
+                        <Text className="text-xs text-text-secondary mb-2">{t('aiEmotion.top3')}</Text>
+                        <View style={{ gap: 6 }}>
+                          {[...liveAiEmotion.emotions]
+                            .sort((a, b) => b.score - a.score)
+                            .slice(0, 3)
+                            .map((item) => {
+                              const barColor = getEmotionColor(item.type);
+                              const emotionKey = item.type.toLowerCase();
+                              const emotionColors = EMOTION_COLORS[emotionKey] || EMOTION_COLORS.neutral;
+                              const emotionEmoji = EMOTION_EMOJIS[emotionKey] || '😐';
+                              return (
+                                <View key={item.type} className="flex-row items-center" style={{ gap: 8 }}>
+                                  <Text className="text-xs w-3">{emotionEmoji}</Text>
+                                  <Text className="text-xs text-text-secondary capitalize w-14">
+                                    {item.type}
+                                  </Text>
+                                  <View className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                                    <View
+                                      className="h-full rounded-full"
+                                      style={{
+                                        width: `${Math.round(item.score * 100)}%`,
+                                        backgroundColor: barColor,
+                                      }}
+                                    />
+                                  </View>
+                                  <Text
+                                    className="text-xs font-semibold w-8 text-right"
+                                    style={{ color: emotionColors.bar }}
+                                  >
+                                    {Math.round(item.score * 100)}%
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                        </View>
+                        <Text className="text-[10px] text-text-muted mt-3">
+                          {t('entry.emotionSenseDisclaimer')}
+                        </Text>
+                      </>
+                    ) : null}
+                  </View>
+                )}
 
                 {/* Content */}
                 <Text className="text-base text-text-primary leading-relaxed">

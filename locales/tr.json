@@ -642,6 +642,14 @@
     "modeQuick": "Hızlı",
     "modeFull": "Tam"
   },
+  "aiEmotion": {
+    "analyzing": "Duygu analiz ediliyor...",
+    "detected": "{{emotion}} tespit edildi (%{{pct}})",
+    "cardTitle": "Yapay Zeka Duygu Analizi",
+    "top3": "Tespit edilen duygular",
+    "poweredBy": "EmotionSenseML",
+    "noText": "Duygu analizi için daha fazla yazın"
+  },
   "askJournal": {
     "placeholder": "Günlüğüne sor...",
     "title": "Günlüğüne Sor",

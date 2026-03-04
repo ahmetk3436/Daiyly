@@ -666,6 +666,14 @@
     "modeQuick": "Quick",
     "modeFull": "Full"
   },
+  "aiEmotion": {
+    "analyzing": "Analyzing emotion...",
+    "detected": "{{emotion}} detected ({{pct}}%)",
+    "cardTitle": "AI Emotion Analysis",
+    "top3": "Top emotions detected",
+    "poweredBy": "EmotionSenseML",
+    "noText": "Write more to see emotion analysis"
+  },
   "askJournal": {
     "placeholder": "Ask your journal...",
     "title": "Ask Your Journal",

@@ -38,6 +38,7 @@ import {
 import { trackEntrySaved } from '../../lib/review';
 import { MOOD_OPTIONS } from '../../types/journal';
 import { useTranslation } from 'react-i18next';
+import { analyzeTextEmotion, getEmotionColor, getEmotionEmoji, type EmotionAIResult } from '../../lib/emotionAI';
 
 // HealthKit is iOS-only and unavailable in Expo Go
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -189,6 +190,8 @@ export default function NewEntryScreen() {
   const [moodScore, setMoodScore] = useState<number>(60);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [aiEmotion, setAiEmotion] = useState<EmotionAIResult | null>(null);
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
   // Default must be in the CARD_COLORS allowlist (must match backend daiyly/models.go CardColors).
   // '#6366F1' is NOT in the allowlist and would cause a 400 on save.
   const [cardColor, setCardColor] = useState(CARD_COLORS[1]); // '#dbeafe' — blue pastel
@@ -348,6 +351,21 @@ export default function NewEntryScreen() {
       }
     }
   }, [selectedMood]);
+
+  // Debounced AI emotion analysis (800ms) — silent on error, never blocks user flow
+  useEffect(() => {
+    if (!content || content.length < 20) {
+      setAiEmotion(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setAiAnalyzing(true);
+      const result = await analyzeTextEmotion(content);
+      setAiEmotion(result);
+      setAiAnalyzing(false);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [content]);
 
   const toggleTag = (tagId: string) => {
     hapticSelection();
@@ -1315,6 +1333,37 @@ export default function NewEntryScreen() {
                 textAlignVertical="top"
                 style={{ lineHeight: 24 }}
               />
+            )}
+
+            {/* AI Emotion Chip — shown when text is long enough */}
+            {(quickMode === 'free' || quickMode === 'reflect') && content.length >= 20 && (
+              <View className="mt-2 flex-row items-center" style={{ minHeight: 28 }}>
+                {aiAnalyzing ? (
+                  <View className="flex-row items-center rounded-full px-3 py-1 bg-slate-100 dark:bg-slate-800">
+                    <ActivityIndicator size="small" color="#94A3B8" style={{ marginRight: 6 }} />
+                    <Text className="text-xs text-text-muted">{t('aiEmotion.analyzing')}</Text>
+                  </View>
+                ) : aiEmotion ? (
+                  <View
+                    className="flex-row items-center rounded-full px-3 py-1"
+                    style={{ backgroundColor: `${getEmotionColor(aiEmotion.dominantEmotion)}33` }}
+                  >
+                    <Text style={{ fontSize: 13 }}>🤖</Text>
+                    <Text
+                      className="text-xs font-semibold ml-1 capitalize"
+                      style={{ color: getEmotionColor(aiEmotion.dominantEmotion) }}
+                    >
+                      {t('aiEmotion.detected', {
+                        emotion: aiEmotion.dominantEmotion,
+                        pct: Math.round((aiEmotion.emotions.find(
+                          (e) => e.type === aiEmotion.dominantEmotion
+                        )?.score ?? 0) * 100),
+                      })}
+                    </Text>
+                    <Text style={{ fontSize: 11, marginLeft: 4 }}>{getEmotionEmoji(aiEmotion.dominantEmotion)}</Text>
+                  </View>
+                ) : null}
+              </View>
             )}
           </View>
           )}
