@@ -15,6 +15,7 @@ import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Sentry from '@sentry/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import api from '../../lib/api';
@@ -42,14 +43,14 @@ interface OnThisDayEntry {
   created_at: string;
 }
 
-// Time-aware greeting
-function getGreeting(): string {
+// Time-aware greeting key
+function getGreetingKey(): string {
   const hour = new Date().getHours();
-  if (hour < 5) return 'Good night';
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  if (hour < 21) return 'Good evening';
-  return 'Good night';
+  if (hour < 5) return 'home.greeting_night';
+  if (hour < 12) return 'home.greeting_morning';
+  if (hour < 17) return 'home.greeting_afternoon';
+  if (hour < 21) return 'home.greeting_evening';
+  return 'home.greeting_night';
 }
 
 function getGreetingEmoji(): string {
@@ -61,19 +62,19 @@ function getGreetingEmoji(): string {
   return '\u{1F31C}';
 }
 
-function timeAgo(dateString: string): string {
+function timeAgoKey(dateString: string): { key: string; options?: Record<string, unknown> } | string {
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffMins < 1) return 'home.justNow';
+  if (diffMins < 60) return { key: 'home.minutesAgo', options: { count: diffMins } };
   const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffHours < 24) return { key: 'home.hoursAgo', options: { count: diffHours } };
   const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays === 1) return 'home.yesterday';
+  if (diffDays < 7) return { key: 'home.daysAgo', options: { count: diffDays } };
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
@@ -116,32 +117,24 @@ interface DisplayEntry {
   detected_emotion?: string;
 }
 
-function getIntentBannerMessage(intent: IntentAnswers): string {
+function getIntentBannerKey(intent: IntentAnswers): string {
   switch (intent.priority) {
-    case 'privacy':
-      return 'Your journal is end-to-end encrypted and stays yours.';
-    case 'ai':
-      return 'Your first AI insight will appear after 7 entries.';
-    case 'media':
-      return 'Tap Quick or Voice for 30-second entries.';
-    case 'patterns':
-      return 'Your mood trends will appear after your first week.';
-    default:
-      break;
+    case 'privacy': return 'home.intentBannerPrivacy';
+    case 'ai': return 'home.intentBannerAI';
+    case 'media': return 'home.intentBannerMedia';
+    case 'patterns': return 'home.intentBannerPatterns';
+    default: break;
   }
   switch (intent.why) {
-    case 'stress':
-      return 'Start with a short entry — even one sentence helps.';
-    case 'habits':
-      return 'Set a daily reminder to build your journaling habit.';
-    case 'emotions':
-      return 'Try the Quick mood check-in below to get started.';
-    default:
-      return 'Welcome! Tap "New Entry" to write your first journal.';
+    case 'stress': return 'home.intentBannerStress';
+    case 'habits': return 'home.intentBannerHabits';
+    case 'emotions': return 'home.intentBannerEmotions';
+    default: return 'home.intentBannerDefault';
   }
 }
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
   const { user, isAuthenticated, isGuest } = useAuth();
   const { isDark } = useTheme();
 
@@ -169,7 +162,7 @@ export default function HomeScreen() {
         const raw = await AsyncStorage.getItem(INTENT_ANSWERS_KEY);
         if (!raw) return;
         const answers: IntentAnswers = JSON.parse(raw);
-        const message = getIntentBannerMessage(answers);
+        const message = t(getIntentBannerKey(answers));
         setIntentBanner(message);
         await AsyncStorage.setItem(FIRST_VISIT_KEY, 'true');
       } catch {
@@ -347,7 +340,7 @@ export default function HomeScreen() {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#2563EB" />
           <Text className="text-base text-text-muted mt-4">
-            Loading your journal...
+            {t('home.loadingJournal')}
           </Text>
         </View>
       </SafeAreaView>
@@ -375,7 +368,7 @@ export default function HomeScreen() {
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
               <Text className="text-sm text-text-muted font-medium">
-                {getGreetingEmoji()} {getGreeting()}
+                {getGreetingEmoji()} {t(getGreetingKey())}
               </Text>
               <Text
                 className="text-2xl font-bold text-text-primary mt-0.5"
@@ -403,7 +396,7 @@ export default function HomeScreen() {
                 {(streak?.grace_period_active || streak?.grace_active) && (
                   <View className="ml-1.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full px-1.5 py-0.5">
                     <Text className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-300">
-                      Protected
+                      {t('home.streakProtected')}
                     </Text>
                   </View>
                 )}
@@ -417,7 +410,7 @@ export default function HomeScreen() {
           <View className="mx-6 mt-2 bg-amber-50 dark:bg-amber-900/20 rounded-xl px-4 py-2 flex-row items-center border border-amber-100 dark:border-amber-800">
             <Ionicons name="cloud-offline-outline" size={14} color="#D97706" />
             <Text className="text-xs text-amber-700 dark:text-amber-400 ml-2">
-              Showing cached data — pull to refresh
+              {t('home.showingCachedData')}
             </Text>
           </View>
         )}
@@ -448,10 +441,10 @@ export default function HomeScreen() {
             <Text className="text-base mr-2">{'\u{1F9CA}'}</Text>
             <View className="flex-1">
               <Text className="text-xs font-bold text-amber-800 dark:text-amber-300">
-                Streak Protected
+                {t('home.streakProtectedBanner')}
               </Text>
               <Text className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                Write today to keep your {currentStreak}-day streak!
+                {t('home.streakProtectedWrite', { count: currentStreak })}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#D97706" />
@@ -467,10 +460,10 @@ export default function HomeScreen() {
             <Text className="text-base mr-2">{'\u{2744}\u{FE0F}'}</Text>
             <View className="flex-1">
               <Text className="text-xs font-bold text-red-700 dark:text-red-400">
-                Streak at risk — log now
+                {t('home.streakAtRisk')}
               </Text>
               <Text className="text-xs text-red-600 dark:text-red-500 mt-0.5">
-                Don't lose your {currentStreak}-day streak
+                {t('home.streakAtRiskDontLose', { count: currentStreak })}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#EF4444" />
@@ -487,13 +480,13 @@ export default function HomeScreen() {
               <Text className="text-3xl mr-3">{todayMood.mood_emoji}</Text>
               <View className="flex-1">
                 <Text className="text-xs text-blue-500 dark:text-blue-400 font-medium">
-                  Today's Mood
+                  {t('home.todaysMood')}
                 </Text>
                 <Text
                   className="text-sm text-text-secondary mt-0.5"
                   numberOfLines={1}
                 >
-                  {todayMood.content || 'Tap to view your entry'}
+                  {todayMood.content || t('home.tapToViewEntry')}
                 </Text>
               </View>
               <View
@@ -522,10 +515,10 @@ export default function HomeScreen() {
             </View>
             <View className="flex-1">
               <Text className="text-base font-semibold text-text-primary">
-                New Entry
+                {t('home.newEntry')}
               </Text>
               <Text className="text-sm text-text-secondary mt-0.5">
-                How are you feeling today?
+                {t('home.howAreYouToday')}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={isDark ? '#475569' : '#D1D5DB'} />
@@ -535,7 +528,7 @@ export default function HomeScreen() {
         {/* Quick Mood Selector */}
         <View className="mt-6 px-6">
           <Text className="text-sm font-semibold text-text-secondary mb-3">
-            Quick Check-in
+            {t('home.quickCheckin')}
           </Text>
           <ScrollView
             horizontal
@@ -578,10 +571,10 @@ export default function HomeScreen() {
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm font-semibold text-purple-900 dark:text-purple-200">
-                    Share Your Mood
+                    {t('home.shareYourMood')}
                   </Text>
                   <Text className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">
-                    Create beautiful share cards for stories
+                    {t('home.shareYourMoodSubtitle')}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={isDark ? '#C084FC' : '#7C3AED'} />
@@ -604,10 +597,10 @@ export default function HomeScreen() {
             </View>
             <View className="flex-1">
               <Text className="text-sm font-semibold text-purple-900 dark:text-purple-200">
-                Create a Free Account
+                {t('home.createFreeAccount')}
               </Text>
               <Text className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">
-                Sync entries, unlock insights & streaks
+                {t('home.syncEntriesSubtitle')}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={isDark ? '#C084FC' : '#7C3AED'} />
@@ -618,7 +611,7 @@ export default function HomeScreen() {
         <View className="mt-6 px-6">
           <View className="flex-row items-center justify-between mb-3">
             <Text className="text-sm font-semibold text-text-secondary">
-              Recent Entries
+              {t('home.recentEntries')}
             </Text>
             {recentEntries.length > 0 && (
               <Pressable
@@ -628,7 +621,7 @@ export default function HomeScreen() {
                 }}
               >
                 <Text className="text-sm font-medium text-blue-600">
-                  See All
+                  {t('home.seeAll')}
                 </Text>
               </Pressable>
             )}
@@ -638,10 +631,10 @@ export default function HomeScreen() {
             <View className="bg-surface-muted rounded-2xl p-8 items-center">
               <Text className="text-4xl mb-3">{'\u{1F4D3}'}</Text>
               <Text className="text-base font-semibold text-text-primary">
-                No entries yet
+                {t('home.noEntries')}
               </Text>
               <Text className="text-sm text-text-muted text-center mt-1">
-                Tap "New Entry" to start your journaling journey
+                {t('home.noEntriesStart')}
               </Text>
             </View>
           ) : (
@@ -677,11 +670,15 @@ export default function HomeScreen() {
                     className="text-sm text-text-primary"
                     numberOfLines={2}
                   >
-                    {entry.content || 'No content'}
+                    {entry.content || t('home.noContent')}
                   </Text>
                   <View className="flex-row items-center mt-1" style={{ gap: 6 }}>
                     <Text className="text-xs text-text-muted">
-                      {timeAgo(entry.created_at)}
+                      {(() => {
+                        const r = timeAgoKey(entry.created_at);
+                        if (typeof r === 'string') return t(r);
+                        return t(r.key, r.options);
+                      })()}
                     </Text>
                     {entry.detected_emotion ? (() => {
                       const key = entry.detected_emotion.toLowerCase();
@@ -742,7 +739,7 @@ export default function HomeScreen() {
               <View className="flex-row items-center">
                 <Text className="text-sm mr-1.5">{'\u{1F4C5}'}</Text>
                 <Text className="text-sm font-semibold text-text-secondary">
-                  On This Day
+                  {t('home.onThisDay')}
                 </Text>
               </View>
             </View>
@@ -782,10 +779,10 @@ export default function HomeScreen() {
                 </View>
               </View>
               <Text className="text-sm text-text-secondary" numberOfLines={2}>
-                {onThisDay.content || 'No content'}
+                {onThisDay.content || t('home.noContent')}
               </Text>
               <Text className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
-                See memory →
+                {t('home.seeMemory')}
               </Text>
             </Pressable>
           </View>
@@ -824,23 +821,23 @@ export default function HomeScreen() {
               {'\u{1F525}'}
             </Text>
             <Text className="text-2xl font-bold text-text-primary mt-3 text-center">
-              {celebrationStreak}-Day Streak!
+              {t('home.streakDays', { count: celebrationStreak })}
             </Text>
             <Text className="text-sm text-text-secondary mt-2 text-center">
               {celebrationStreak === 3
-                ? "You're building a habit. Keep going!"
+                ? t('home.streakCelebration3')
                 : celebrationStreak === 7
-                ? "One full week of journaling. Incredible!"
+                ? t('home.streakCelebration7')
                 : celebrationStreak === 30
-                ? "30 days strong. You're unstoppable."
-                : "100 days! A true journaling master."}
+                ? t('home.streakCelebration30')
+                : t('home.streakCelebration100')}
             </Text>
             <Pressable
               onPress={() => setStreakCelebration(false)}
               className="mt-6 bg-amber-500 rounded-2xl px-8 py-3"
             >
               <Text className="text-white font-bold text-base">
-                Keep it up!
+                {t('home.keepItUp')}
               </Text>
             </Pressable>
           </Animated.View>

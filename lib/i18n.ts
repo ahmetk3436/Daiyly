@@ -17,6 +17,8 @@ import pt from '../locales/pt.json';
 import ru from '../locales/ru.json';
 import ar from '../locales/ar.json';
 import zh from '../locales/zh.json';
+import ja from '../locales/ja.json';
+import ko from '../locales/ko.json';
 
 export const LANGUAGE_STORAGE_KEY = '@daiyly_language';
 
@@ -38,6 +40,8 @@ export const SUPPORTED_LANGUAGES: SupportedLanguage[] = [
   { code: 'ru', name: 'Russian', nativeName: 'Русский', isRTL: false },
   { code: 'ar', name: 'Arabic', nativeName: 'العربية', isRTL: true },
   { code: 'zh', name: 'Chinese', nativeName: '中文', isRTL: false },
+  { code: 'ja', name: 'Japanese', nativeName: '日本語', isRTL: false },
+  { code: 'ko', name: 'Korean', nativeName: '한국어', isRTL: false },
 ];
 
 // Get device language code (e.g., 'en-US' -> 'en')
@@ -74,6 +78,8 @@ const initI18n = async () => {
       ru: { translation: ru },
       ar: { translation: ar },
       zh: { translation: zh },
+      ja: { translation: ja },
+      ko: { translation: ko },
     },
     lng: savedLanguage,
     fallbackLng: 'en',

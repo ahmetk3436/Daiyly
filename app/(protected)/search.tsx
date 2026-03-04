@@ -23,6 +23,7 @@ import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getGuestEntries } from '../../lib/guest';
 import { useProGate } from '../../lib/useProGate';
+import { useTranslation } from 'react-i18next';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ export default function SearchScreen() {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const offlineCacheRef = useRef<{ id: string; content: string; mood_emoji: string; mood_score: number; created_at: string; card_color: string }[]>([]);
 
+  const { t } = useTranslation();
   const { user, isGuest } = useAuth();
   const { isSubscribed } = useSubscription();
   const { isDark } = useTheme();
@@ -273,10 +275,10 @@ export default function SearchScreen() {
         setError(
           localResults.length > 0
             ? null
-            : 'No cached results found. Connect to search all entries.'
+            : t('search.noCachedResults')
         );
       } else {
-        setError('Failed to search entries. Please check your connection and try again.');
+        setError(t('search.failedSearch'));
       }
     } finally {
       setLoading(false);
@@ -353,9 +355,9 @@ export default function SearchScreen() {
     } catch (err: any) {
       Sentry.captureException(err);
       if (err?.response?.status === 429) {
-        setAskError("You've reached today's AI query limit");
+        setAskError(t('search.rateLimitReached'));
       } else {
-        setAskError('Could not get an answer. Please try again.');
+        setAskError(t('search.couldNotAnswer'));
       }
     } finally {
       setAskLoading(false);
@@ -433,7 +435,7 @@ export default function SearchScreen() {
         <View className="mx-5 my-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl px-4 py-3 flex-row items-center border border-amber-100 dark:border-amber-800">
           <Ionicons name="cloud-offline-outline" size={16} color="#D97706" />
           <Text className="text-xs text-amber-700 dark:text-amber-400 ml-2 flex-1">
-            Searching recent cached entries only. Connect to search all your journal entries.
+            {t('search.offlineCacheOnly')}
           </Text>
         </View>
       );
@@ -454,7 +456,7 @@ export default function SearchScreen() {
       <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#2563EB" />
-          <Text className="text-text-muted mt-3">Loading your entries...</Text>
+          <Text className="text-text-muted mt-3">{t('search.loadingEntries')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -467,9 +469,9 @@ export default function SearchScreen() {
       <View className="flex-1">
         {/* Header */}
         <View className="px-5 pt-6 pb-2 bg-background border-b border-border">
-          <Text className="text-2xl font-bold text-text-primary">Search</Text>
+          <Text className="text-2xl font-bold text-text-primary">{t('search.title')}</Text>
           <Text className="text-sm text-text-secondary mt-0.5">
-            {isGuest ? 'Search your local entries' : 'Find moments from your journal'}
+            {isGuest ? t('search.headerSubtitleGuest') : t('search.headerSubtitleAuth')}
           </Text>
         </View>
 
@@ -499,7 +501,7 @@ export default function SearchScreen() {
                   mode === 'keyword' ? 'text-blue-600' : 'text-text-muted'
                 }`}
               >
-                Keyword
+                {t('search.tabKeyword')}
               </Text>
             </View>
           </Pressable>
@@ -528,11 +530,11 @@ export default function SearchScreen() {
                   mode === 'ask' ? 'text-violet-600' : 'text-text-muted'
                 }`}
               >
-                Ask Your Journal
+                {t('search.tabAskJournal')}
               </Text>
               {!isSubscribed && (
                 <View className="ml-1.5 rounded-full px-1.5 py-0.5 bg-violet-100 dark:bg-violet-900/50">
-                  <Text className="text-[9px] font-bold text-violet-700 dark:text-violet-300">PRO</Text>
+                  <Text className="text-[9px] font-bold text-violet-700 dark:text-violet-300">{t('common.pro')}</Text>
                 </View>
               )}
             </View>
@@ -548,7 +550,7 @@ export default function SearchScreen() {
                 <Ionicons name="search" size={18} color={isDark ? '#64748B' : '#9CA3AF'} />
                 <TextInput
                   className="flex-1 ml-2.5 text-sm text-text-primary"
-                  placeholder="Search entries..."
+                  placeholder={t('search.searchEntries')}
                   placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
                   value={query}
                   onChangeText={handleQueryChange}
@@ -578,14 +580,14 @@ export default function SearchScreen() {
                 </View>
                 <View className="flex-1">
                   <Text className="text-xs font-semibold text-blue-800 dark:text-blue-200">
-                    Upgrade for Full-Text Search
+                    {t('search.upgradeFullTextTitle')}
                   </Text>
                   <Text className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5">
-                    Search across all entries instantly with Premium
+                    {t('search.upgradeFullTextSubtitle')}
                   </Text>
                 </View>
                 <View className="bg-blue-200 dark:bg-blue-700 rounded-full px-2 py-0.5">
-                  <Text className="text-[10px] font-bold text-blue-700 dark:text-blue-200">PRO</Text>
+                  <Text className="text-[10px] font-bold text-blue-700 dark:text-blue-200">{t('common.pro')}</Text>
                 </View>
               </Pressable>
             )}
@@ -597,7 +599,7 @@ export default function SearchScreen() {
                   <Ionicons name="cloud-offline-outline" size={32} color="#EF4444" />
                 </View>
                 <Text className="text-base font-semibold text-text-primary mb-2">
-                  Search Failed
+                  {t('search.searchFailed')}
                 </Text>
                 <Text className="text-sm text-center text-text-secondary mb-4">
                   {error}
@@ -611,7 +613,7 @@ export default function SearchScreen() {
                   }}
                 >
                   <Ionicons name="refresh" size={16} color="#FFFFFF" />
-                  <Text className="text-white font-medium text-sm ml-2">Try Again</Text>
+                  <Text className="text-white font-medium text-sm ml-2">{t('common.tryAgain')}</Text>
                 </Pressable>
               </View>
             )}
@@ -620,16 +622,16 @@ export default function SearchScreen() {
             {!error && loading && results.length === 0 && query.length >= 2 && (
               <View className="py-12 items-center">
                 <ActivityIndicator size="large" color="#2563EB" />
-                <Text className="text-text-muted text-sm mt-3">Searching...</Text>
+                <Text className="text-text-muted text-sm mt-3">{t('search.searching')}</Text>
               </View>
             )}
 
             {/* Results Count */}
             {!error && query.length >= 2 && !loading && results.length > 0 && (
               <Text className="text-xs text-text-secondary px-5 py-2">
-                {total} {total === 1 ? 'entry' : 'entries'} found
+                {t(total === 1 ? 'search.entriesFound_one' : 'search.entriesFound_other', { count: total })}
                 {isGuest && (
-                  <Text className="text-purple-500 dark:text-purple-400"> (local)</Text>
+                  <Text className="text-purple-500 dark:text-purple-400"> {t('search.localResults')}</Text>
                 )}
               </Text>
             )}
@@ -658,16 +660,16 @@ export default function SearchScreen() {
                       />
                     </View>
                     <Text className="text-base font-semibold text-text-primary mb-2">
-                      No entries found
+                      {t('search.noEntriesFound')}
                     </Text>
                     <Text className="text-sm text-center text-text-secondary">
-                      We couldn't find any entries matching "{query}".
+                      {t('search.noEntriesFoundSubtitle', { query })}
                     </Text>
                     <Pressable
                       className="mt-4 bg-surface-muted px-5 py-2.5 rounded-full"
                       onPress={handleClearKeyword}
                     >
-                      <Text className="text-text-secondary font-medium text-sm">Clear Search</Text>
+                      <Text className="text-text-secondary font-medium text-sm">{t('search.clearSearch')}</Text>
                     </Pressable>
                   </View>
                 )
@@ -679,10 +681,10 @@ export default function SearchScreen() {
                     <Ionicons name="book-outline" size={36} color="#2563EB" />
                   </View>
                   <Text className="text-base font-semibold text-text-primary mb-2">
-                    Search Your Journal
+                    {t('search.searchYourJournal')}
                   </Text>
                   <Text className="text-sm text-center text-text-secondary mb-6">
-                    Search across all your entries. Find specific moments, feelings, or events.
+                    {t('search.searchSubtitle')}
                   </Text>
 
                   {isGuest && (
@@ -700,18 +702,18 @@ export default function SearchScreen() {
                           color={isDark ? '#C084FC' : '#8B5CF6'}
                         />
                         <Text className="text-xs font-semibold text-purple-700 dark:text-purple-300 ml-1.5">
-                          Guest Mode
+                          {t('search.guestModeTitle')}
                         </Text>
                       </View>
                       <Text className="text-xs text-purple-600 dark:text-purple-400">
-                        Create a free account to sync and search across all devices.
+                        {t('search.guestModeBody')}
                       </Text>
                     </Pressable>
                   )}
 
                   <View className="bg-surface-muted rounded-xl p-4 w-full max-w-xs">
                     <Text className="text-xs font-medium text-text-secondary mb-2">
-                      Try searching for:
+                      {t('search.trySearchingFor')}
                     </Text>
                     <View className="flex-row flex-wrap" style={{ gap: 6 }}>
                       {['grateful', 'work', 'family', 'happy', 'weekend'].map((suggestion) => (
@@ -748,7 +750,7 @@ export default function SearchScreen() {
                 <Ionicons name="sparkles" size={18} color={isDark ? '#8B5CF6' : '#8B5CF6'} />
                 <TextInput
                   className="flex-1 ml-2.5 text-sm text-text-primary"
-                  placeholder="Ask anything about your journal..."
+                  placeholder={t('search.askInput')}
                   placeholderTextColor={isDark ? '#64748B' : '#9CA3AF'}
                   value={askQuery}
                   onChangeText={(text) => {
@@ -781,7 +783,7 @@ export default function SearchScreen() {
                       askQuery.trim().length > 0 ? 'text-white' : 'text-text-muted'
                     }`}
                   >
-                    Ask
+                    {t('search.askButton')}
                   </Text>
                 </Pressable>
               </View>
@@ -791,7 +793,7 @@ export default function SearchScreen() {
             {!askResult && !askLoading && (
               <View className="px-5 mb-4">
                 <Text className="text-xs font-medium text-text-muted mb-2">
-                  Try asking:
+                  {t('search.tryAsking')}
                 </Text>
                 <View className="flex-row flex-wrap" style={{ gap: 8 }}>
                   {ASK_PROMPT_CHIPS.map((chip) => (
@@ -812,10 +814,10 @@ export default function SearchScreen() {
               <View className="mx-5 mt-4 bg-violet-50 dark:bg-violet-900/20 rounded-2xl p-5 border border-violet-100 dark:border-violet-800 items-center">
                 <ActivityIndicator size="small" color="#8B5CF6" />
                 <Text className="text-sm text-violet-700 dark:text-violet-300 font-medium mt-3">
-                  Searching your memories...
+                  {t('search.searchingMemories')}
                 </Text>
                 <Text className="text-xs text-violet-500 dark:text-violet-400 mt-1">
-                  Analyzing your journal entries
+                  {t('search.analyzingEntries')}
                 </Text>
               </View>
             )}
@@ -840,7 +842,7 @@ export default function SearchScreen() {
                       <Ionicons name="sparkles" size={14} color="#8B5CF6" />
                     </View>
                     <Text className="text-sm font-bold text-text-primary">
-                      Journal Insight
+                      {t('search.journalInsight')}
                     </Text>
                   </View>
                   <Text className="text-sm text-text-secondary leading-relaxed">
@@ -852,7 +854,7 @@ export default function SearchScreen() {
                 {askResult.top_themes && askResult.top_themes.length > 0 && (
                   <View className="mb-3">
                     <Text className="text-xs font-semibold text-text-muted mb-2 uppercase tracking-wider px-1">
-                      Top themes
+                      {t('search.topThemesLabel')}
                     </Text>
                     <View className="flex-row flex-wrap" style={{ gap: 8 }}>
                       {askResult.top_themes.map((theme, i) => (
@@ -873,7 +875,7 @@ export default function SearchScreen() {
                 {askResult.entries && askResult.entries.length > 0 && (
                   <View className="mb-3">
                     <Text className="text-xs font-semibold text-text-muted mb-2 uppercase tracking-wider px-1">
-                      Related entries
+                      {t('search.relatedEntries')}
                     </Text>
                     {askResult.entries.map((entry) => {
                       const formattedDate = new Date(entry.created_at).toLocaleDateString('en-US', {
@@ -907,7 +909,7 @@ export default function SearchScreen() {
                 {(!askResult.entries || askResult.entries.length === 0) && askResult.referenced_dates && askResult.referenced_dates.length > 0 && (
                   <View className="bg-surface-elevated rounded-2xl p-4 border border-border mb-3">
                     <Text className="text-xs font-semibold text-text-muted mb-2 uppercase tracking-wider">
-                      Referenced entries
+                      {t('search.referencedEntries')}
                     </Text>
                     {askResult.referenced_dates.map((dateStr, i) => {
                       const d = new Date(dateStr);
@@ -939,7 +941,7 @@ export default function SearchScreen() {
                   onPress={handleClearAsk}
                 >
                   <Text className="text-xs text-text-muted">
-                    Ask something else
+                    {t('search.askSomethingElse')}
                   </Text>
                 </Pressable>
               </View>
@@ -952,10 +954,10 @@ export default function SearchScreen() {
                   <Ionicons name="sparkles" size={36} color="#8B5CF6" />
                 </View>
                 <Text className="text-base font-semibold text-text-primary mb-2">
-                  Ask Your Journal
+                  {t('search.askEmptyTitle')}
                 </Text>
                 <Text className="text-sm text-center text-text-secondary">
-                  Ask a question and get an AI-powered answer based on your actual journal entries.
+                  {t('search.askEmptySubtitle')}
                 </Text>
               </View>
             )}

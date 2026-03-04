@@ -12,6 +12,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import api from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -55,19 +56,19 @@ interface DisplayEntry {
   detected_emotion?: string;
 }
 
-function timeAgo(dateString: string): string {
+function timeAgoKey(dateString: string): { key: string; options?: Record<string, unknown> } | string {
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffMins < 1) return 'home.justNow';
+  if (diffMins < 60) return { key: 'home.minutesAgo', options: { count: diffMins } };
   const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffHours < 24) return { key: 'home.hoursAgo', options: { count: diffHours } };
   const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays === 1) return 'home.yesterday';
+  if (diffDays < 7) return { key: 'home.daysAgo', options: { count: diffDays } };
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
@@ -89,6 +90,7 @@ function getMoodColor(score: number): string {
 }
 
 export default function HistoryScreen() {
+  const { t } = useTranslation();
   const { isGuest } = useAuth();
   const { isDark } = useTheme();
 
@@ -177,9 +179,7 @@ export default function HistoryScreen() {
           return;
         }
       }
-      setError(
-        'Failed to load your journal entries. Please check your connection and try again.'
-      );
+      setError(t('history.failedLoad'));
     }
   };
 
@@ -272,7 +272,7 @@ export default function HistoryScreen() {
             {isGuest && (
               <View className="bg-amber-50 dark:bg-amber-900/30 rounded-full px-2 py-0.5 mr-2 border border-amber-200 dark:border-amber-700">
                 <Text className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
-                  Local
+                  {t('common.local')}
                 </Text>
               </View>
             )}
@@ -306,7 +306,11 @@ export default function HistoryScreen() {
           <View className="flex-row items-center justify-between mt-2">
             <View className="flex-row items-center" style={{ gap: 6 }}>
               <Text className="text-xs text-text-muted">
-                {timeAgo(item.created_at)}
+                {(() => {
+                  const r = timeAgoKey(item.created_at);
+                  if (typeof r === 'string') return t(r);
+                  return t(r.key, r.options);
+                })()}
               </Text>
               {item.detected_emotion ? (() => {
                 const key = item.detected_emotion.toLowerCase();
@@ -350,12 +354,12 @@ export default function HistoryScreen() {
     <View className="flex-1 justify-center items-center px-10 py-20">
       <Text className="text-5xl mb-4">{'\u{1F4D3}'}</Text>
       <Text className="text-lg font-semibold text-text-primary mb-2">
-        {moodFilter ? 'No matching entries' : 'No entries yet'}
+        {moodFilter ? t('history.noMatchingEntries') : t('history.noHistory')}
       </Text>
       <Text className="text-sm text-text-secondary text-center mb-6">
         {moodFilter
-          ? 'No entries match this mood filter. Try another mood or clear the filter.'
-          : 'Start journaling to see your entries here'}
+          ? t('history.noMatchingSubtitle')
+          : t('history.startJournalingHere')}
       </Text>
       {moodFilter ? (
         <Pressable
@@ -366,7 +370,7 @@ export default function HistoryScreen() {
           }}
         >
           <Text className="text-sm font-semibold text-text-secondary">
-            Clear Filter
+            {t('history.clearFilter')}
           </Text>
         </Pressable>
       ) : (
@@ -378,7 +382,7 @@ export default function HistoryScreen() {
           }}
         >
           <Text className="text-sm font-semibold text-white">
-            Write your first entry
+            {t('history.writeFirstEntry')}
           </Text>
         </Pressable>
       )}
@@ -391,7 +395,7 @@ export default function HistoryScreen() {
         <Ionicons name="cloud-offline" size={40} color="#DC2626" />
       </View>
       <Text className="text-lg font-semibold text-text-primary mb-2">
-        Something went wrong
+        {t('history.somethingWentWrong')}
       </Text>
       <Text className="text-sm text-text-secondary text-center mb-6">
         {error}
@@ -406,7 +410,7 @@ export default function HistoryScreen() {
           color="white"
           style={{ marginRight: 6 }}
         />
-        <Text className="text-sm font-semibold text-white">Try Again</Text>
+        <Text className="text-sm font-semibold text-white">{t('common.tryAgain')}</Text>
       </Pressable>
     </View>
   );
@@ -435,7 +439,7 @@ export default function HistoryScreen() {
     if (!hasMore && displayEntries.length > 0 && !moodFilter) {
       return (
         <Text className="text-xs text-text-muted text-center py-4">
-          You've seen all entries
+          {t('history.seenAllEntries')}
         </Text>
       );
     }
@@ -451,7 +455,7 @@ export default function HistoryScreen() {
       {/* Header */}
       <View className="px-5 pt-6 pb-3 bg-background border-b border-border">
         <View className="flex-row items-center">
-          <Text className="text-2xl font-bold text-text-primary">History</Text>
+          <Text className="text-2xl font-bold text-text-primary">{t('history.title')}</Text>
           <View className="bg-blue-50 dark:bg-blue-900/30 rounded-full px-2.5 py-0.5 ml-3 border border-blue-100 dark:border-blue-800">
             <Text className="text-xs font-bold text-blue-600 dark:text-blue-400">
               {moodFilter ? displayEntries.length : total}
@@ -488,7 +492,7 @@ export default function HistoryScreen() {
                 className="h-9 rounded-full px-3 bg-surface-muted items-center justify-center"
               >
                 <Text className="text-xs font-medium text-text-secondary">
-                  Clear
+                  {t('common.clear')}
                 </Text>
               </Pressable>
             )}
@@ -507,7 +511,7 @@ export default function HistoryScreen() {
               style={{ marginRight: 6 }}
             />
             <Text className="text-xs text-amber-700 dark:text-amber-400">
-              Sign up to sync entries to cloud
+              {t('history.signUpToSync')}
             </Text>
           </View>
           <Pressable
@@ -517,7 +521,7 @@ export default function HistoryScreen() {
               router.push('/(auth)/register');
             }}
           >
-            <Text className="text-xs font-medium text-white">Sign Up</Text>
+            <Text className="text-xs font-medium text-white">{t('common.signUp')}</Text>
           </Pressable>
         </View>
       )}
@@ -527,7 +531,7 @@ export default function HistoryScreen() {
         <View className="bg-amber-50 dark:bg-amber-900/20 px-5 py-2.5 flex-row items-center border-b border-amber-100 dark:border-amber-800">
           <Ionicons name="cloud-offline-outline" size={14} color="#D97706" />
           <Text className="text-xs text-amber-700 dark:text-amber-400 ml-2">
-            Showing cached data — pull to refresh
+            {t('history.showingCachedData')}
           </Text>
         </View>
       )}
